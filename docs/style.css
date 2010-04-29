@@ -1,0 +1,117 @@
+body {
+	background-color: #444444;
+	line-height: 1.3;
+	font-family: monaco, monospace;
+	font-size: 12px;
+}
+
+.white {
+	border: 1px solid #ffffff;	
+}
+
+#center {	
+	margin-left: 15%;
+	margin-right: 15%
+}
+
+#footer {	
+	margin-top: 5px;
+	background-color: #ffffff;	
+	padding-left: 30px;
+	padding-top: 5px;
+	padding-bottom: 5px;
+}
+
+#header_container {
+	background-color: #ffffff;		
+	padding-left: 30px;
+	padding-top: 10px;
+	padding-bottom: 10px;
+}
+
+#content_container {	
+	background-color: #ffffff;	
+	margin-top: 5px;
+	padding-top: 10px;
+	padding-left: 10%;
+	padding-right: 10%;		
+}
+
+#content_body {
+	margin: 10px auto;	
+}
+
+#contents {
+	border: 1px solid #002233;
+	padding: 5px;
+}
+
+ol {
+	color: #0022cc;	
+}
+
+div.docsection {
+	margin-top: 30px;
+}
+
+div.code {
+	border: 1px dotted #555555;
+	background-color: #eeeeee;
+	color: #333333;	
+	margin: 10px;
+	padding: 10px;
+	font-size: 90%;
+}
+
+div.indent1 {
+	padding: 0px 0px 0px 40px;	
+}
+
+div.smallIndent {
+	padding: 0px 0px 0px 15px;	
+}
+
+span.keyword, span.nodename {
+	color: #0000ff;	
+}
+
+span.attribute {
+	color: #ff0000;	
+}
+
+span.string {
+	color: #992244;	
+}
+
+span.reserve {
+	color: #ffaa00;	
+}
+
+div.doc-title {
+	border-bottom: 2px solid #000000;
+	background-color: #dddddd;
+	color: #0022cc;
+	font-size: 18px;
+	margin-bottom: 10px;
+}
+
+div.doc-content {
+	margin-left: 2%;
+	margin-right: 2%;	
+}
+
+div.api-item {
+//	border: 1px solid #999999;
+}
+
+div.api-item-title {
+	border-bottom: 1px solid #999999;
+	background-color: #cccccc;
+}
+
+div.dashes {
+	width: 100%;
+	height: 1px;
+	border-bottom: 1px dashed #777777;	
+	margin: 20px 0px 20px 0px;
+}

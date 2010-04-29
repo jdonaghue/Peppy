@@ -1,0 +1,277 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+	<head>
+		<title>Peppy - Documentation</title>
+		<!--<link rel="stylesheet" type="text/css" href="http://jamesdonaghue.com/static/peppy/docs/style.css" />-->
+		<link rel="stylesheet" type="text/css" href="style.css" />
+	</head>
+	
+	<body>
+				
+		<div id="content_body">			
+			<div id="center">
+				
+				<div id="header_container">
+					<h2>Peppy Documentation ---</h2>
+				</div>
+				
+				<div id="content_container" >
+					<div id="contents">
+						Contents:
+						<ol>
+							<li><a href="#api">The Peppy API</a></li>
+							<li><a href="#usingpeppy">Using Peppy</a></li>			
+							<li><a href="#usingpeppylibs">Using Peppy with other libraries</a></li>
+                        </ol>
+					</div>
+					
+					<div id="api" class="docsection">
+						<div class="doc-title">
+							The Peppy API:
+						</div>					
+						
+						<div class="doc-content">
+							<div class="api-item">	
+								<div class="api-item-title">
+									<b><big>query</big></b><small>( String selector,[String|Element context] ) : Array&lt;Element&gt;</small>
+								</div>
+								<div class="smallIndent">Takes a selector and optionally a context from which to start the search (defaults to window.document), and returns an array of all elements 
+								that match the selector. This function handles <a href="http://www.w3.org/TR/css3-selectors/#w3cselgrammar" target="_blank">groups, simple selectors, and combinators</a>.  It is the only function
+								in Peppy that handles groups.  It dispatches simple selector's into querySelector, and combinators into
+								queryCombinator.  For most users, this is probably the one that you will want to use.
+								</div>
+							</div>
+							<br/>
+							
+							<div class="api-item">	
+								<div class="api-item-title">	
+									<b><big>$</big></b><small>( String selector,[String|Element context] ) : Array&lt;Element&gt; </small>
+								</div>
+								<div class="smallIndent">Alias for query.
+								</div>
+							</div>
+							<br/>
+							
+							<div class="api-item">		
+								<div class="api-item-title">
+									<b><big>querySelector</big></b><small>( String simpleSelector,[String|Element context] ) : Array&lt;Element&gt; </small>
+								</div>
+								<div class="smallIndent">Takes a simple selector and optionally a context from which to start the search, and returns an array of all elements 
+								that match the selector.
+								</div>
+							</div>
+							<br/>
+								
+							<div class="api-item">
+								<div class="api-item-title">			
+									<b><big>queryCombinator</big></b><small>( Array&lt;Element&gt; left,Array&lt;Element&gt; right,String combinator ) : Array&lt;Element&gt; </small>
+								</div>
+								<div class="smallIndent">Takes two lists of elements and a combinator and runs the combinator 
+								test for each element in <b>right</b> on each element in <b>left</b>.
+								</div>
+							</div>
+							
+							<a href="#contents">Top</a>
+						</div>
+					</div>
+					
+					<div id="usingpeppy" class="docsection">
+						<div class="doc-title">
+							Using Peppy:
+						</div>
+						
+						<div class="doc-content">
+							Peppy is a CSS3 compliant selector engine. This means that it selects Elements 
+							from the DOM using CSS3 selectors to describe them. 
+							<br/>
+							I will not cover here all of the different selectors, 
+							there is an excellent <a href="http://www.w3.org/TR/css3-selectors/#selectors" target="_blank">specification</a> that enumerates
+							them and how they function. I will however, discuss many of them and provide examples.
+							<br/>
+							<br/>
+							The first thing that you need to do to use peppy is load it into your document:
+							
+							<div class="code">
+								&lt;<span class="nodename">script</span> <span class="attribute">src</span>=<span class="string">"peppy.js"</span>&gt;&lt/<span class="nodename">script</span>&gt;
+								
+								<br/>						
+								
+							</div>
+							
+					 		Here is an example of Peppy in use:
+					 		
+					 		<div class="code">
+					 			&lt;<span class="nodename">html</span>&gt;				 			
+					 			<div class="smallIndent">
+					 				&lt;<span class="nodename">head</span>&gt;				 			
+						 			<div class="smallIndent">
+						 				&lt;<span class="nodename">script</span> <span class="attribute">src</span>=<span class="string">"peppy.js"</span>&gt;&lt/<span class="nodename">script</span>&gt;
+						 				<br/>
+						 				&lt;<span class="nodename">script</span> <span class="attribute">type</span>=<span class="string">"text/JavaScript"</span>&gt;
+						 								 				
+						 				<div class="indent1">
+						 					<span class="reserve">window</span>.onload = <span class="keyword">function</span>() {						 					
+							 				
+							 				<div class="indent1">
+							 					<span class="keyword">var</span> example = $(<span class="string">'div.example'</span>)[0];
+							 					<br/>
+							 					// do some stuff to the node.
+							 				</div>
+						 					}
+						 				</div>
+						 				
+						 				&lt/<span class="nodename">script</span>&gt;
+						 			</div>
+						 			&lt;/<span class="nodename">head</span>&gt;
+						 			<br/>
+						 			&lt;<span class="nodename">body</span>&gt;
+						 			<div class="indent1">
+						 				&lt;<span class="nodename">div</span> <span="attribute">class</span>=<span class="string">"example"</span>&gt;
+						 				<br/>
+						 				&lt;/<span class="nodename">div</span>&gt;
+						 			</div>
+						 			&lt;/<span class="nodename">body</span>&gt;
+						 		</div>
+						 		&lt;/<span class="nodename">html</span>&gt;
+					 		</div>
+					 		
+					 		... More to come soon.
+					 		<br/>
+							<a href="#contents">Top</a>				
+						</div>
+					</div>					
+					
+					<div id="usingpeppylibs" class="docsection">
+						<div class="doc-title">
+							Using Peppy with other libraries:
+						</div>
+						
+						<div class="doc-content">	
+							<div class="doctext">						
+								If you intend to use the '<b>$</b>' variable as a shorcut for Peppy beware that Peppy will 
+								not overwrite this variable. If Peppy is the only library you are using then this will be fine, 
+								Peppy will assign a reference of Peppy.query to '<b>$</b>'. If you are using Peppy with other 
+								libraries though, the safest bet is to force an assignment of '<b>$</b>' to Peppy.query after all 
+								scripts are loaded.	
+								
+								<div class="code">
+									&lt;<span class="nodename">html</span>&gt;				 			
+						 			<div class="smallIndent">
+						 				&lt;<span class="nodename">head</span>&gt;				 			
+							 			<div class="smallIndent">
+							 				&lt;<span class="nodename">script</span> <span class="attribute">src</span>=<span class="string">"otherlibrary.js"</span>&gt;&lt/<span class="nodename">script</span>&gt;
+							 				<br/>
+							 				&lt;<span class="nodename">script</span> <span class="attribute">src</span>=<span class="string">"peppy.js"</span>&gt;&lt/<span class="nodename">script</span>&gt;
+							 				<br/>
+							 				<br/>
+							 				&lt;<span class="nodename">script</span> <span class="attribute">type</span>=<span class="string">"text/JavaScript"</span>&gt;
+							 								 				
+							 				<div class="indent1">								 				
+								 				$ = Peppy.query;
+							 				</div>
+							 				
+							 				&lt/<span class="nodename">script</span>&gt;
+							 			</div>
+							 			&lt;/<span class="nodename">head</span>&gt;
+							 			<br/>
+							 			&lt;<span class="nodename">body</span>&gt;
+							 			<div class="indent1">
+							 				...	
+							 			</div>
+							 			&lt;/<span class="nodename">body</span>&gt;
+							 		</div>
+							 		&lt;/<span class="nodename">html</span>&gt;
+								</div>					
+								
+								<div class="dashes"></div>								
+								
+								If you wish to use Peppy as the selector engine in your own library you could take a few different approaches.
+								I will reccomend taking the entire source of Peppy and placing it at some point prior to your first intended use.
+								However, another valid approach would be to dissect the source of Peppy and use the parts that you chose. Be aware 
+								though that Peppy uses a closure to hide private methods and variables that it does not want exposed, so this is a 
+								potential place for hiccups to occur for this approach.
+								
+								<div class="dashes"></div>
+								
+						 		If you wish to use Peppy as the selector engine in another library, I will give you
+						 		 a few helpful suggestions here. I will use jQuery as an example as I have received the 
+						 		 most requests for an example of how to do this with jQuery. I should note that this is 
+						 		 not supported by the jQuery team and this has been only minimally tested by myself. 
+								<br/>
+								<br/>
+						 		The first thing that you need to do is locate the selector engine API in your library.  
+						 		In jQuery (as of v1.2.6 anyway) this is jQuery.find. The next thing to do is overwrite the 
+						 		assignment to jQuery.find with a reference to Peppy.query. 
+						 		
+						 		<br/>
+						 		<br/>
+						 		
+						 		Here is an example: 
+						 		
+						 		<div class="code">
+						 			&lt;<span class="nodename">html</span>&gt;				 			
+						 			<div class="smallIndent">
+						 				&lt;<span class="nodename">head</span>&gt;				 			
+							 			<div class="smallIndent">
+							 				&lt;<span class="nodename">script</span> <span class="attribute">src</span>=<span class="string">"jquery.js"</span>&gt;&lt/<span class="nodename">script</span>&gt;
+							 				<br/>
+							 				&lt;<span class="nodename">script</span> <span class="attribute">src</span>=<span class="string">"peppy.js"</span>&gt;&lt/<span class="nodename">script</span>&gt;
+							 				<br/>
+							 				&lt;<span class="nodename">script</span> <span class="attribute">type</span>=<span class="string">"text/JavaScript"</span>&gt;
+							 								 				
+							 				<div class="indent1">								 				
+								 				jQuery.find = peppy.query;		 				
+							 				</div>
+							 				
+							 				&lt/<span class="nodename">script</span>&gt;
+							 			</div>
+							 			&lt;/<span class="nodename">head</span>&gt;
+							 			<br/>
+							 			&lt;<span class="nodename">body</span>&gt;
+							 			<div class="indent1">
+							 				&lt;<span class="nodename">div</span> <span="attribute">class</span>=<span class="string">"example"</span>&gt;
+							 				<br/>
+							 					<div class="indent1">example 1</div>
+							 				&lt;/<span class="nodename">div</span>&gt;
+							 				<br/>
+							 				&lt;<span class="nodename">div</span> <span="attribute">class</span>=<span class="string">"example"</span>&gt;
+							 				<br/>
+							 					<div class="indent1">example 2</div>
+							 				&lt;/<span class="nodename">div</span>&gt;
+							 				<br/>
+							 				&lt;<span class="nodename">div</span> <span="attribute">class</span>=<span class="string">"example"</span>&gt;
+							 				<br/>
+							 					<div class="indent1">example 3</div>
+							 				&lt;/<span class="nodename">div</span>&gt;
+							 			</div>
+							 			&lt;/<span class="nodename">body</span>&gt;
+							 		</div>
+							 		&lt;/<span class="nodename">html</span>&gt;
+						 		</div>
+							</div>
+							
+							That's it.  jQuery will now use Peppy as its selector engine. Now you can do things like:
+							
+							<div class="code">
+								$(<span class="string">'.example'</span>).each(<span class="keyword">function</span>(){
+								<br/>
+								...
+								<br/>
+								});
+								<br/>
+							</div>
+							
+							and you are using Peppy to get the nodes, and jQuery to apply the anonymous function to each element found from the query.
+							<br/>
+							<a href="#contents">Top</a>
+						</div>
+					</div>
+				</div>	
+				<div id="footer">
+					<i><small>Last updated: <b>December 2nd, 2008</b>. ---</small></i> 
+				</div>				
+			</div>
+					
+		</div>
+	</body>
+</html>

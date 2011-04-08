@@ -538,9 +538,9 @@
 							 		  a > 0 ? position >= b && (position - b) % a == 0 :
 							 			  	  position <= b && (position + b) % a == 0));
 				},				
-				":nth-last-child" : function( e, n ) { return this[ ":nth-child" ]( e, n, a, b ); },  // TODO: n is not right.
-				":nth-of-type" : function( e, n, t ) { return this[ ":nth-child" ]( e, n, a, b, t); },
-				":nth-last-of-type" : function( e, n, t ) { return this[ ":nth-child" ](e, n, a, b, t ); }, // TODO: n is not right.
+				":nth-last-child" : function( e, n, t, a, b ) { return this[ ":nth-child" ]( e, n, a, b ); },  // TODO: n is not right.
+				":nth-of-type" : function( e, n, t, a, b ) { return this[ ":nth-child" ]( e, n, a, b, t); },
+				":nth-last-of-type" : function( e, n, t, a, b ) { return this[ ":nth-child" ](e, n, a, b, t ); }, // TODO: n is not right.
 				":first-child" : function( e ) { return this[ ":nth-child" ]( e, "first" ); },
 				":last-child" : function( e ) { return this[ ":nth-child" ]( e, "last" ); },
 				":first-of-type" : function( e, n, t ) { return this[ ":nth-child" ]( e, "first", null, null, t ); },

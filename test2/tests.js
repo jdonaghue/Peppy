@@ -1,9 +1,9 @@
 (function() {
 
-	function nodeNames(nodes) {
+	function nodeIdOrNames(nodes) {
 		var ret = [];
 		for(var i=0,len=nodes.length; i<len; i++) {
-			ret.push(nodes[i].nodeName);
+			ret.push(nodes[i].getAttribute('id') || nodes[i].nodeName);
 		}
 		return ret;
 	}
@@ -12,12 +12,12 @@
 		expect(4);
 
 		var selector = '#idselector';
-		deepEqual(nodeNames(peppy.query(selector)), ['DIV'], selector);
-		deepEqual(nodeNames(peppy.query(selector), null, { useId: true }), ['DIV'], selector);
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['idselector'], selector);
+		deepEqual(nodeIdOrNames(peppy.query(selector), null, { useId: true }), ['idselector'], selector);
 
 		selector = 'div#idselector';
-		deepEqual(nodeNames(peppy.query(selector)), ['DIV'], selector);
-		deepEqual(nodeNames(peppy.query(selector), null, { useId: true }), ['DIV'], selector);
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['idselector'], selector);
+		deepEqual(nodeIdOrNames(peppy.query(selector), null, { useId: true }), ['idselector'], selector);
 	});
 
 	test('type selector', function() {
@@ -32,8 +32,21 @@
 		equal(peppy.query(selector, document.getElementById('scopedType'), { useType: true }).length, 3, selector + ' scoped useType');
 
 		selector = 'div';
-		deepEqual(nodeNames(peppy.query(selector)), ['DIV', 'DIV', 'DIV', 'DIV', 'DIV', 'DIV'], selector);
-		deepEqual(nodeNames(peppy.query(selector, null, { useType: true })), ['DIV', 'DIV', 'DIV', 'DIV', 'DIV', 'DIV'], selector + ' useType');
+		deepEqual(nodeIdOrNames(peppy.query(selector)), 
+			['qunit', 
+			 'qunit-testrunner-toolbar', 
+			 'idselector',
+  			 'classSelector',
+  			 'scopedType',
+  			 'DIV'], selector);
+
+		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useType: true })), 
+			['qunit', 
+			 'qunit-testrunner-toolbar', 
+			 'idselector',
+  			 'classSelector',
+  			 'scopedType',
+  			 'DIV'], selector + ' useType');
 
 		// scoped
 		equal(peppy.query(selector, document.getElementById('scopedType')).length, 1, selector + ' scoped');
@@ -43,21 +56,37 @@
 	test('class selector', function() {
 		expect(4);
 
-		var selector = '.classselector';
-		deepEqual(nodeNames(peppy.query(selector)), ['DIV'], selector);
-		deepEqual(nodeNames(peppy.query(selector, null, { useClass: true })), ['DIV'], selector + ' useClass');
+		var selector = '.classSelector';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['classSelector'], selector);
+		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useClass: true })), ['classSelector'], selector + ' useClass');
 
-		selector = 'div.classselector';
-		deepEqual(nodeNames(peppy.query(selector)), ['DIV'], selector);
-		deepEqual(nodeNames(peppy.query(selector, null, { useClass: true })), ['DIV'], selector + ' useClass');
+		selector = 'div.classSelector';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['classSelector'], selector);
+		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useClass: true })), ['classSelector'], selector + ' useClass');
 	});
 
 	test('combinators', function() {
-		expect(2);
-		
-		var selector = 'div .classselector';
-		deepEqual(nodeNames(peppy.query(selector)), [], selector);
-		deepEqual(nodeNames(peppy.query(selector, null, { useClass: true })), [], selector + ' useClass');		
+		expect(6);
+
+		var selector = 'div div';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), 
+			['qunit-testrunner-toolbar',
+			 'DIV'], selector);
+		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useClass: true })), 
+			['qunit-testrunner-toolbar',
+			 'DIV'], selector + ' useClass');	
+
+		selector = 'div + p';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['P'], selector);
+
+		selector = 'div div + p';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['P'], selector);
+
+		selector = 'div#scopedType > *';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['DIV', 'P', 'SPAN'], selector);
+
+		selector = 'div#scopedType > div ~\r    span';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['SPAN'], selector);
 	});
 
 }());

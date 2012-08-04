@@ -48,7 +48,7 @@
 	
 ﻿
 
-	var LL = {
+	var _LL = {
 		UNIV: 0,
 		TYPE: 1,
 		ID: 2,
@@ -62,7 +62,7 @@
 		NTH: 10
 	};
 
-	var	COMBINATORS = {
+	var	_COMBINATORS = {
 			'+': 0,
 			'>': 1,
 			'~': 2,
@@ -77,7 +77,7 @@
 
 	function nextNonSpace(selector, start) {
 		for (var i = start; i < selector.length; i++) {
-			if (selector[i] != ' ') {
+			if (selector[i] != ' ' && selector[i] != '\n' && selector[i] != '\r' && selector[i] != '\t') {
 				return i-1;
 			}
 		}
@@ -153,7 +153,7 @@
 		return selector.length - 1;
 	}
 
-	LL.lex = function lexer(selector) {
+	_LL.lex = function lexer(selector) {
 		var groups = [],
 			selectorStack = [];
 
@@ -169,46 +169,51 @@
 				selectorStack = [];
 				i = nextNonSpace(selector, i+1);
 			}
-			else if (character in COMBINATORS 
+			else if (character in _COMBINATORS 
 				&& characterAhead != '='
-				&& (lastInStack.type != LL.PSCLS 
+				&& (lastInStack.type != _LL.PSCLS 
 					|| lastInStack.value.indexOf('nth-child') == -1 
 					|| lastInStack.value[lastInStack.value.length-1] == ')')) {
 
 				// COMBINATOR
-				if (!lastInStack || lastInStack.type != LL.COMB) {
-					selectorStack.push({
-						type: LL.COMB,
-						value: character
-					});
+				if (!lastInStack || lastInStack.type != _LL.COMB) {
 					i = nextNonSpace(selector, i+1);
+
+					if (selector[i+1] in _COMBINATORS) {
+						character = selector[i+1];
+						i = nextNonSpace(selector, i+2);
+					}
+					selectorStack.push({
+						type: _LL.COMB,
+						value: character
+					});					
 				}
 			}
 			else {
 				// SELECTOR
 				var type;
 				if (selectorStack.length == 0 
-					|| lastInStack.type == LL.COMB
+					|| lastInStack.type == _LL.COMB
 					|| character in { '[':0, '.':1, '#':2, '*':3 }
 					|| (character == ':'
 						&& selector[i-1] != ':')) {
 
 					switch(character) {
 						case '*' : {
-							type = LL.UNIV;
+							type = _LL.UNIV;
 							break;
 						}
 						case '.' : {
-							type = LL.CLS;
+							type = _LL.CLS;
 							break;
 						}
 						case '#': {
-							type = LL.ID;
+							type = _LL.ID;
 							break;
 						}
 						case ':': {
 							if (selector[i+1] == ':') {
-								type = LL.PSEL;
+								type = _LL.PSEL;
 							}
 							else {
 								if (selector.substr(i + 1, 3) == 'not') {
@@ -217,7 +222,7 @@
 										op: 'NOT'
 									}
 									i = parseRecursivePseudo(i+5, selector, character)
-									type = LL.NOT;
+									type = _LL.NOT;
 								}
 								else if (selector.substr(i + 1, 8) == 'contains') {
 									character = {
@@ -225,7 +230,7 @@
 										op: 'CONTAINS'
 									}
 									i = parseRecursivePseudo(i+10, selector, character);
-									type = LL.CONT;
+									type = _LL.CONT;
 								}
 								else if (selector.substr(i +1, 3) == 'nth') {
 									character= {
@@ -233,10 +238,10 @@
 										op: 'NTH'
 									}
 									i = parseNth(i+11, selector, character);
-									type = LL.NTH;
+									type = _LL.NTH;
 								}
 								else {
-									type = LL.PSCLS;
+									type = _LL.PSCLS;
 								}
 							}
 
@@ -246,7 +251,7 @@
 							break;
 						}
 						case '[': {
-							type = LL.ATTR;
+							type = _LL.ATTR;
 							character = {
 								left: '',
 								right: '', 
@@ -257,7 +262,7 @@
 							break;
 						}
 						default: {
-							type = LL.TYPE;
+							type = _LL.TYPE;
 							break;
 						}
 					}
@@ -281,7 +286,7 @@
 
 	_win.peppy = {
 		query: function(selector, context, opts) {
-			var tree = LL.lex(selector),
+			var tree = _LL.lex(selector),
 				results = [];
 
 			for(var groupIndex=0, groupLength=tree.length; groupIndex < groupLength; groupIndex++) {
@@ -301,7 +306,7 @@
 				var selectorData = selectorTree[stIndex];
 				
 				switch(selectorData.type) {
-					case LL.ID : {
+					case _LL.ID : {
 						if (opts.useId || results.length != 0) {
 							var tmpId = [];
 							for (var index=0, len=results.length; index < len; index++) {
@@ -316,15 +321,15 @@
 						}
 						break;
 					}
-					case LL.UNIV:
-					case LL.TYPE: {
+					case _LL.UNIV:
+					case _LL.TYPE: {
 						if (opts.useType || results.length != 0) {
 							if (results.length == 0) {
 								results = _getAllDescendants(context);
 							}
 							var tmpType = [];
 							for (var index = 0, len = results.length; index < len; index++) {
-								if (selectorData.type == LL.UNIV || results[index].nodeName == selectorData.value.toUpperCase()) {
+								if (selectorData.type == _LL.UNIV || results[index].nodeName.toUpperCase() == selectorData.value.toUpperCase()) {
 									tmpType.push(results[index]);
 								}
 							}
@@ -338,7 +343,7 @@
 						}
 						break;
 					}
-					case LL.CLS: {
+					case _LL.CLS: {
 						if (opts.useClass || results.length != 0 || !context.getElementsByTagName) {
 							if (results.length == 0) {
 								results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
@@ -362,28 +367,61 @@
 						}
 						break;
 					}
-					case LL.COMB: {
+					case _LL.COMB: {
 						switch(selectorData.value) {
 							case ' ': {
-								if (results.length == 0) {
-									results = _getAllDescendants(context);
+								var tmpCombDesc = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									tmpCombDesc = tmpCombDesc.concat(_getAllDescendants(results[index]));
 								}
-								else {
-									var tmpComb = [];
-									for (var index = 0, len = results.length; index < len; index++) {
-										tmpComb = tmpComb.concat(_getAllDescendants(results[index]));
-									}
-									results = tmpComb;
-								}
+								results = tmpCombDesc;
+								tmpCombDesc = undefined;
 								break;
 							}
 							case '+': {
+								var tmpCombNext = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var nextEl = results[index].nextSibling;
+									do {
+										if (nextEl.nodeType == 1) {
+											break;
+										}
+									}
+									while((nextEl = nextEl.nextSibling));
+									if (nextEl) {
+										tmpCombNext.push(nextEl);
+									}
+								}
+								results = tmpCombNext;
 								break;
 							}
 							case '~': {
-
+								var tmpCombNextAll = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var nextEl = results[index].nextSibling;
+									do {
+										if (nextEl.nodeType == 1) {
+											tmpCombNextAll.push(nextEl);	
+										}
+									}
+									while((nextEl = nextEl.nextSibling));
+								}
+								results = tmpCombNextAll;
+								break;
 							}
 							case '>': {
+								var tmpCombChild = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var nextEl = results[index].childNodes[0];
+									while(nextEl) {
+										if (nextEl.nodeType == 1) {
+											tmpCombChild.push(nextEl);	
+										}
+										nextEl = nextEl.nextSibling;
+									}
+									
+								}
+								results = tmpCombChild;
 								break;
 							}
 						}

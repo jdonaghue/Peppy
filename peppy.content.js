@@ -4,7 +4,7 @@
 
 	_win.peppy = {
 		query: function(selector, context, opts) {
-			var tree = LL.lex(selector),
+			var tree = _LL.lex(selector),
 				results = [];
 
 			for(var groupIndex=0, groupLength=tree.length; groupIndex < groupLength; groupIndex++) {
@@ -24,7 +24,7 @@
 				var selectorData = selectorTree[stIndex];
 				
 				switch(selectorData.type) {
-					case LL.ID : {
+					case _LL.ID : {
 						if (opts.useId || results.length != 0) {
 							var tmpId = [];
 							for (var index=0, len=results.length; index < len; index++) {
@@ -39,15 +39,15 @@
 						}
 						break;
 					}
-					case LL.UNIV:
-					case LL.TYPE: {
+					case _LL.UNIV:
+					case _LL.TYPE: {
 						if (opts.useType || results.length != 0) {
 							if (results.length == 0) {
 								results = _getAllDescendants(context);
 							}
 							var tmpType = [];
 							for (var index = 0, len = results.length; index < len; index++) {
-								if (selectorData.type == LL.UNIV || results[index].nodeName == selectorData.value.toUpperCase()) {
+								if (selectorData.type == _LL.UNIV || results[index].nodeName.toUpperCase() == selectorData.value.toUpperCase()) {
 									tmpType.push(results[index]);
 								}
 							}
@@ -61,7 +61,7 @@
 						}
 						break;
 					}
-					case LL.CLS: {
+					case _LL.CLS: {
 						if (opts.useClass || results.length != 0 || !context.getElementsByTagName) {
 							if (results.length == 0) {
 								results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
@@ -85,28 +85,61 @@
 						}
 						break;
 					}
-					case LL.COMB: {
+					case _LL.COMB: {
 						switch(selectorData.value) {
 							case ' ': {
-								if (results.length == 0) {
-									results = _getAllDescendants(context);
+								var tmpCombDesc = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									tmpCombDesc = tmpCombDesc.concat(_getAllDescendants(results[index]));
 								}
-								else {
-									var tmpComb = [];
-									for (var index = 0, len = results.length; index < len; index++) {
-										tmpComb = tmpComb.concat(_getAllDescendants(results[index]));
-									}
-									results = tmpComb;
-								}
+								results = tmpCombDesc;
+								tmpCombDesc = undefined;
 								break;
 							}
 							case '+': {
+								var tmpCombNext = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var nextEl = results[index].nextSibling;
+									do {
+										if (nextEl.nodeType == 1) {
+											break;
+										}
+									}
+									while((nextEl = nextEl.nextSibling));
+									if (nextEl) {
+										tmpCombNext.push(nextEl);
+									}
+								}
+								results = tmpCombNext;
 								break;
 							}
 							case '~': {
+								var tmpCombNextAll = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var nextEl = results[index].nextSibling;
+									do {
+										if (nextEl.nodeType == 1) {
+											tmpCombNextAll.push(nextEl);	
+										}
+									}
+									while((nextEl = nextEl.nextSibling));
+								}
+								results = tmpCombNextAll;
 								break;
 							}
 							case '>': {
+								var tmpCombChild = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var nextEl = results[index].childNodes[0];
+									while(nextEl) {
+										if (nextEl.nodeType == 1) {
+											tmpCombChild.push(nextEl);	
+										}
+										nextEl = nextEl.nextSibling;
+									}
+									
+								}
+								results = tmpCombChild;
 								break;
 							}
 						}

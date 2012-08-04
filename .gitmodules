@@ -1,0 +1,3 @@
+[submodule "LLSelectorParser"]
+	path = LLSelectorParser
+	url = git@github.com:jdonaghue/LLSelectorParser.git

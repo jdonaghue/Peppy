@@ -145,6 +145,109 @@
 						}
 						break;
 					}
+					case _LL.ATTR: {
+						switch(selectorData.value.op) {
+							case '': {
+								var tmpAttrExist = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.getAttribute(selectorData.value.left)) {
+										tmpAttrExist.push(el);
+									}
+								}
+								results = tmpAttrExist;
+								break;
+							}
+							case '=': {
+								var tmpAttrEq = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.getAttribute(selectorData.value.left) == selectorData.value.right) {
+										tmpAttrEq.push(el);
+									}
+								}
+								results = tmpAttrEq;
+								break;
+							}
+							case '~=': {
+								var tmpAttrListEq = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										attr = el.getAttribute(selectorData.value.left);
+
+									if (attr) {
+										var attrList = attr.split(/\s+/);
+										for(var attrListIndex = 0, attrListLen = attrList.length; attrListIndex < attrListLen; attrListIndex++) {
+											if (attrList[attrListIndex] == selectorData.value.right) {
+												tmpAttrListEq.push(el);
+												break;
+											}
+										}
+									}
+								}
+								results = tmpAttrListEq;
+								break;
+							}
+							case '^=': {
+								var tmpAttrBegins = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										attr = el.getAttribute(selectorData.value.left);
+
+									if (attr && attr.indexOf(selectorData.value.right) == 0) {
+										tmpAttrBegins.push(el);
+									}
+								}
+								results = tmpAttrBegins;
+								break;
+							}
+							case '$=': {
+								var tmpAttrEnds = [],
+									attrRE = new RegExp(selectorData.value.right + '$');
+
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+
+									if (attrRE.test(el.getAttribute(selectorData.value.left))) {
+										tmpAttrEnds.push(el);
+									}
+								}
+								results = tmpAttrEnds;
+								break;
+							}
+							case '*=': {
+								var tmpAttrContains = [],
+									attrRE = new RegExp(selectorData.value.right + '$');
+
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										attrRE = new RegExp('.*' + selectorData.value.right + '.*');
+
+									if (attrRE.test(el.getAttribute(selectorData.value.left))) {
+										tmpAttrContains.push(el);
+									}
+								}
+								results = tmpAttrContains;
+								break;
+							}
+							case '|=': {
+								var tmpAttrHyphenListBegin = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										attr = el.getAttribute(selectorData.value.left);
+
+									if (attr) {
+										var attrList = attr.split('-');
+										if (attrList.length > 1 && attrList[0] == selectorData.value.right) {
+											tmpAttrHyphenListBegin.push(el);
+										}
+									}
+								}
+								results = tmpAttrHyphenListBegin;
+								break;
+							}
+						}
+					}
 				}
 				// if we didn't find anything no need to further filter
 				if (results.length == 0) {

@@ -38,7 +38,8 @@
 			 'idselector',
   			 'classSelector',
   			 'scopedType',
-  			 'DIV'], selector);
+  			 'DIV',
+  			 'attribute'], selector);
 
 		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useType: true })), 
 			['qunit', 
@@ -46,7 +47,8 @@
 			 'idselector',
   			 'classSelector',
   			 'scopedType',
-  			 'DIV'], selector + ' useType');
+  			 'DIV',
+  			 'attribute'], selector + ' useType');
 
 		// scoped
 		equal(peppy.query(selector, document.getElementById('scopedType')).length, 1, selector + ' scoped');
@@ -87,6 +89,37 @@
 
 		selector = 'div#scopedType > div ~\r    span';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), ['SPAN'], selector);
+	});
+
+	test('attribute selector', function() {
+		expect(9);
+
+		var selector = '*[data-value]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrEq1', 'attrListEq1', 'attrListHyphen1'], selector);
+
+		selector = '#attribute *[data-value]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrEq1', 'attrListEq1', 'attrListHyphen1'], selector);
+
+		selector = '#attribute *[data-value=test]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrEq1'], selector);
+
+		selector = '#attribute *[data-value~=test3]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListEq1'], selector);
+
+		selector = '#attribute *[data-value^=test1]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListEq1'], selector);
+
+		selector = '#attribute *[data-value$=test3]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListEq1'], selector);
+
+		selector = '#attribute *[data-value*=test2]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListEq1'], selector);
+
+		selector = '#attribute *[data-value*=test3]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListEq1'], '#attribute *[data-value*=\\rtest3]');
+
+		selector = '#attribute *[data-value|=testHyph1]';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListHyphen1'], selector);
 	});
 
 }());

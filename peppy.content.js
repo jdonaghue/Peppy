@@ -247,6 +247,273 @@
 								break;
 							}
 						}
+						break;
+					}
+					case _LL.PSCLS: {
+						switch(selectorData.value) {
+							case ':first-child': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										prev = el.previousSibling,
+										found = false;
+
+									while(prev) {
+										if (prev.nodeType == 1) {
+											found = true;
+										}
+										prev = prev.previousSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':last-child': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.nextSibling,
+										found = false;
+
+									while(next) {
+										if (next.nodeType == 1) {
+											found = true;
+										}
+										next = next.nextSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':first-of-type': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										prev = el.previousSibling,
+										nodeName = el.nodeName,
+										found = false;
+
+									while(prev) {
+										if (prev.nodeType == 1 && prev.nodeName == nodeName) {
+											found = true;
+										}
+										prev = prev.previousSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':last-of-type': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.nextSibling,
+										nodeName = el.nodeName,
+										found = false;
+
+									while(next) {
+										if (next.nodeType == 1 && next.nodeName == nodeName) {
+											found = true;
+										}
+										next = next.nextSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':only-child': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.parentNode.childNodes[0],
+										count = 0;
+
+									while(next) {
+										if (next.nodeType == 1) {
+											count++;
+										}
+										next = next.nextSibling;
+									}
+									if (count == 1) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':only-of-type': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.parentNode.childNodes[0],
+										nodeName = el.nodeName,
+										count = 0;
+
+									while(next) {
+										if (next.nodeType == 1 && next.nodeName == nodeName) {
+											count++;
+										}
+										next = next.nextSibling;
+									}
+									if (count == 1) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':empty': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.childNodes.length == 0) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':enabled': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (!el.getAttribute('disabled')) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':disabled': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.getAttribute('disabled')) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':checked': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.getAttribute('checked')) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':hidden': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.type == 'hidden' || el.style.display == 'none') {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':visible': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.type != 'hidden' || el.style.display != 'none') {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+						}
+						break;
+					}
+					case _LL.NTH: {
+						if (selectorData.value.toLowerCase() == 'odd') {
+							selectorData.value = '2n+1';
+						}
+						else if (selectorData.value.toLowerCase() == 'even') {
+							selectorData.value = '2n';
+						}
+
+						var tmpNth = [],
+							nthParts = selectorData.value.split('n'),
+							a = nthParts[0] || 0,
+							b = nthParts[1] || 0;
+
+						for (var index = 0, len = results.length; index < len; index++) {
+							var el = results[index],
+								next = el.parentNode.childNodes[0],
+								nodeName = el.nodeName,
+								count = 1,
+								elsIndex = 1;
+
+							while(next) {
+								if (next.nodeType == 1) {
+									if (next == el) {
+										elsIndex = count;
+									}
+									count++;
+								}
+								next = next.nextSibling;
+							}
+
+							// form an+b:
+							// handle index based and n+1, n-1, etc cases here:
+							if (!isNaN(selectorData.value) || a == 0) {
+								if (!isNaN(selectorData.value)) {
+							 		if (elsIndex == selectorData.value) {
+										tmpNth.push(el);
+									}
+								}
+								else {
+									var op = b[0],
+										bPos = b.substr(1);
+
+									if (op == '-') {
+										if (elsIndex == count - bPos) {
+											tmpNth.push(el);
+										}
+									}
+									else {
+										if (elsIndex == bPos) {
+											tmpNth.push(el);
+										}
+									}
+								} 
+							} 
+							// handle full an+b, an-b, even, odd cases here:
+							else if (a == 0 ? elsIndex == b :
+                               a > 0 ? elsIndex >= b && (elsIndex - b) % a == 0 :
+                                         elsIndex <= b && (elsIndex + b) % a == 0) {
+								tmpNth.push(el);
+							}
+						}
+						results = tmpNth;
+						break;
+					}
+					case _LL.NOT: {
+
+						break;
+					}
+					case _LL.CONT: {
+
+						break;
 					}
 				}
 				// if we didn't find anything no need to further filter

@@ -10,25 +10,14 @@
 	E[foo$="bar"]			an E element whose "foo" attribute value ends exactly with the string "bar"	
 	E[foo*="bar"]			an E element whose "foo" attribute value contains the substring "bar"	
 	E[foo|="en"]			an E element whose "foo" attribute has a hyphen-separated list of values beginning (from the left) with "en"
-	E:root					an E element, root of the document	
 	E:nth-child(n)			an E element, the n-th child of its parent	
-	E:nth-last-child(n)		an E element, the n-th child of its parent, counting from the last one	
-	E:nth-of-type(n)		an E element, the n-th sibling of its type	
-	E:nth-last-of-type(n)	an E element, the n-th sibling of its type, counting from the last one	
 	E:first-child			an E element, first child of its parent	
 	E:last-child			an E element, last child of its parent	
 	E:first-of-type			an E element, first sibling of its type	
 	E:last-of-type			an E element, last sibling of its type	
 	E:only-child			an E element, only child of its parent	
 	E:only-of-type			an E element, only sibling of its type	
-	E:empty					an E element that has no children (including text nodes)	
-	E:link
-	E:visited				an E element being the source anchor of a hyperlink of which the target is not yet visited (:link) or already visited (:visited)	
-	E:active
-	E:hover
-	E:focus					an E element during certain user actions	
-	E:target				an E element being the target of the referring URI	
-	E:lang(fr)				an element of type E in language "fr" (the document language specifies how language is determined)	
+	E:empty					an E element that has no children (including text nodes)		
 	E:enabled
 	E:disabled				a user interface element E which is enabled or disabled	
 	E:checked				a user interface element E which is checked (for instance a radio-button or checkbox)	
@@ -238,6 +227,7 @@
 										op: 'NTH'
 									}
 									i = parseNth(i+11, selector, character);
+									character = character.value;
 									type = _LL.NTH;
 								}
 								else {
@@ -529,6 +519,273 @@
 								break;
 							}
 						}
+						break;
+					}
+					case _LL.PSCLS: {
+						switch(selectorData.value) {
+							case ':first-child': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										prev = el.previousSibling,
+										found = false;
+
+									while(prev) {
+										if (prev.nodeType == 1) {
+											found = true;
+										}
+										prev = prev.previousSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':last-child': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.nextSibling,
+										found = false;
+
+									while(next) {
+										if (next.nodeType == 1) {
+											found = true;
+										}
+										next = next.nextSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':first-of-type': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										prev = el.previousSibling,
+										nodeName = el.nodeName,
+										found = false;
+
+									while(prev) {
+										if (prev.nodeType == 1 && prev.nodeName == nodeName) {
+											found = true;
+										}
+										prev = prev.previousSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':last-of-type': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.nextSibling,
+										nodeName = el.nodeName,
+										found = false;
+
+									while(next) {
+										if (next.nodeType == 1 && next.nodeName == nodeName) {
+											found = true;
+										}
+										next = next.nextSibling;
+									}
+									if (!found) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':only-child': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.parentNode.childNodes[0],
+										count = 0;
+
+									while(next) {
+										if (next.nodeType == 1) {
+											count++;
+										}
+										next = next.nextSibling;
+									}
+									if (count == 1) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':only-of-type': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index],
+										next = el.parentNode.childNodes[0],
+										nodeName = el.nodeName,
+										count = 0;
+
+									while(next) {
+										if (next.nodeType == 1 && next.nodeName == nodeName) {
+											count++;
+										}
+										next = next.nextSibling;
+									}
+									if (count == 1) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':empty': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.childNodes.length == 0) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':enabled': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (!el.getAttribute('disabled')) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':disabled': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.getAttribute('disabled')) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':checked': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.getAttribute('checked')) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':hidden': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.type == 'hidden' || el.style.display == 'none') {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':visible': {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if (el.type != 'hidden' || el.style.display != 'none') {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+						}
+						break;
+					}
+					case _LL.NTH: {
+						if (selectorData.value.toLowerCase() == 'odd') {
+							selectorData.value = '2n+1';
+						}
+						else if (selectorData.value.toLowerCase() == 'even') {
+							selectorData.value = '2n';
+						}
+
+						var tmpNth = [],
+							nthParts = selectorData.value.split('n'),
+							a = nthParts[0] || 0,
+							b = nthParts[1] || 0;
+
+						for (var index = 0, len = results.length; index < len; index++) {
+							var el = results[index],
+								next = el.parentNode.childNodes[0],
+								nodeName = el.nodeName,
+								count = 1,
+								elsIndex = 1;
+
+							while(next) {
+								if (next.nodeType == 1) {
+									if (next == el) {
+										elsIndex = count;
+									}
+									count++;
+								}
+								next = next.nextSibling;
+							}
+
+							// form an+b:
+							// handle index based and n+1, n-1, etc cases here:
+							if (!isNaN(selectorData.value) || a == 0) {
+								if (!isNaN(selectorData.value)) {
+							 		if (elsIndex == selectorData.value) {
+										tmpNth.push(el);
+									}
+								}
+								else {
+									var op = b[0],
+										bPos = b.substr(1);
+
+									if (op == '-') {
+										if (elsIndex == count - bPos) {
+											tmpNth.push(el);
+										}
+									}
+									else {
+										if (elsIndex == bPos) {
+											tmpNth.push(el);
+										}
+									}
+								} 
+							} 
+							// handle full an+b, an-b, even, odd cases here:
+							else if (a == 0 ? elsIndex == b :
+                               a > 0 ? elsIndex >= b && (elsIndex - b) % a == 0 :
+                                         elsIndex <= b && (elsIndex + b) % a == 0) {
+								tmpNth.push(el);
+							}
+						}
+						results = tmpNth;
+						break;
+					}
+					case _LL.NOT: {
+
+						break;
+					}
+					case _LL.CONT: {
+
+						break;
 					}
 				}
 				// if we didn't find anything no need to further filter

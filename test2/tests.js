@@ -39,7 +39,8 @@
   			 'classSelector',
   			 'scopedType',
   			 'DIV',
-  			 'attribute'], selector);
+  			 'attribute',
+  			 'pseudo'], selector);
 
 		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useType: true })), 
 			['qunit', 
@@ -48,7 +49,8 @@
   			 'classSelector',
   			 'scopedType',
   			 'DIV',
-  			 'attribute'], selector + ' useType');
+  			 'attribute',
+  			 'pseudo'], selector + ' useType');
 
 		// scoped
 		equal(peppy.query(selector, document.getElementById('scopedType')).length, 1, selector + ' scoped');
@@ -120,6 +122,64 @@
 
 		selector = '#attribute *[data-value|=testHyph1]';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListHyphen1'], selector);
+	});
+
+	test('pseudo class', function() {
+		expect(7);
+
+		var selector = '#pseudo *:first-child';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'only-child'], selector);
+
+		selector = '#pseudo *:last-child';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['only-child', 'sixth'], selector);
+
+		selector = '#pseudo *:first-of-type';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'second', 'fourth', 'only-child'], selector);
+
+		selector = '#pseudo *:last-of-type';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['fourth', 'only-child', 'fifth', 'sixth'], selector);
+
+		selector = '#pseudo *:only-child';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['only-child'], selector);
+
+		selector = '#pseudo *:only-of-type';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['fourth', 'only-child'], selector);
+
+		selector = '#pseudo *:empty';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'second', 'third', 'fourth', 'only-child', 'fifth', 'sixth'], selector);
+	});
+
+	test('nth selector', function() {
+		expect(9);
+
+		var selector = '#pseudo *:nth-child(1)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'only-child'], selector);
+
+		selector = '#pseudo *:nth-child(n+1)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'only-child'], selector);
+
+		selector = '#pseudo *:nth-child(n+2)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['second'], selector);
+
+		selector = '#pseudo *:nth-child(n-1)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['only-child', 'sixth'], selector);		
+
+		selector = '#pseudo *:nth-child(7)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['sixth'], selector);		
+
+		selector = '#pseudo *:nth-child(2n)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['second', 'fourth', 'fifth'], selector);		
+
+		selector = '#pseudo *:nth-child(even)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['second', 'fourth', 'fifth'], selector);		
+
+		selector = '#pseudo *:nth-child(2n+1)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'third', 'pseudoParent', 'only-child', 'sixth'], selector);		
+
+		selector = '#pseudo *:nth-child(odd)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'third', 'pseudoParent', 'only-child', 'sixth'], selector);		
+
+
 	});
 
 }());

@@ -226,9 +226,13 @@
 	});
 
 	test('group selector', function() {
-		expect(0);
+		expect(2);
 
-		
+		var selector = '#contains, #pseudo';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['contains', 'pseudo'], selector);
+
+		selector = '#contains, #pseudo #only-child:nth-child(odd)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['contains', 'only-child'], selector);
 	});
 
 }());

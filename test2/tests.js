@@ -40,7 +40,9 @@
   			 'scopedType',
   			 'DIV',
   			 'attribute',
-  			 'pseudo'], selector);
+  			 'pseudo',
+  			 'not',
+  			 'contains'], selector);
 
 		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useType: true })), 
 			['qunit', 
@@ -50,7 +52,9 @@
   			 'scopedType',
   			 'DIV',
   			 'attribute',
-  			 'pseudo'], selector + ' useType');
+  			 'pseudo',
+  			 'not',
+  			 'contains'], selector + ' useType');
 
 		// scoped
 		equal(peppy.query(selector, document.getElementById('scopedType')).length, 1, selector + ' scoped');
@@ -178,8 +182,53 @@
 
 		selector = '#pseudo *:nth-child(odd)';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), ['first', 'third', 'pseudoParent', 'only-child', 'sixth'], selector);		
+	});
 
+	test('not selector', function() {
+		expect(5);
 
+		var selector = '#not:not(p)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['not'], selector);
+
+		selector = '#not:not(div)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), [], selector);
+
+		selector = '#not:not(*)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), [], selector);
+
+		selector = '#not:not(:nth-child(10))';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), [], selector);
+
+		selector = '#not:not(:nth-child(8))';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['not'], selector);
+	});
+
+	test('contains selector', function() {
+		expect(6);
+
+		var selector = '#contains:contains(span)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['contains'], selector);
+
+		selector = '#contains:contains(*:first-child)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['contains'], selector);
+
+		selector = '#contains:contains(div)';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), [], selector);
+
+		selector = '#contains:contains(*:nth-child(odd))';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['contains'], selector);
+
+		selector = '#contains:contains(*:nth-child(1))';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['contains'], selector);
+
+		selector = '#contains:contains(*:nth-child(2))';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), [], selector);
+	});
+
+	test('group selector', function() {
+		expect(0);
+
+		
 	});
 
 }());

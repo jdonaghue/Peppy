@@ -115,7 +115,7 @@
 			
 			if (c == ')') {
 				if (--paranthCount == 0) {
-					obj.value = lexer(obj.value);
+					obj.value = _LL.lex(obj.value);
 					return i;
 				}
 			}
@@ -211,6 +211,7 @@
 										op: 'NOT'
 									}
 									i = parseRecursivePseudo(i+5, selector, character)
+									character = character.value;
 									type = _LL.NOT;
 								}
 								else if (selector.substr(i + 1, 8) == 'contains') {
@@ -219,6 +220,7 @@
 										op: 'CONTAINS'
 									}
 									i = parseRecursivePseudo(i+10, selector, character);
+									character = character.value;
 									type = _LL.CONT;
 								}
 								else if (selector.substr(i +1, 3) == 'nth') {
@@ -291,6 +293,10 @@
 
 			context = context || _doc;
 			opts = opts || {};
+
+			if (opts.testContext && context.nodeType == 1) {
+				results.push(context);
+			}
 
 			for (var stIndex = 0, stLength = selectorTree.length; stIndex < stLength; stIndex++) {
 				var selectorData = selectorTree[stIndex];
@@ -780,11 +786,32 @@
 						break;
 					}
 					case _LL.NOT: {
+						var tmpNot = [],
+							origTestContext = opts.testContext;
 
+							opts.testContext = true;
+
+						for (var index = 0, len = results.length; index < len; index++) {
+							var el = results[index];
+
+							if (this.querySelector(selectorData.value[0], el, opts).length == 0) {
+								tmpNot.push(el);
+							}
+						}
+						opts.testContext = origTestContext;
+						results = tmpNot;
 						break;
 					}
 					case _LL.CONT: {
+						var tmpCont = [];
+						for (var index = 0, len = results.length; index < len; index++) {
+							var el = results[index];
 
+							if (this.querySelector(selectorData.value[0], el, opts).length > 0) {
+								tmpCont.push(el);
+							}
+						}
+						results = tmpCont;
 						break;
 					}
 				}

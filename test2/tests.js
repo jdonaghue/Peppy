@@ -37,6 +37,7 @@
 			 'qunit-testrunner-toolbar', 
 			 'idselector',
   			 'classSelector',
+  			 '.#:classSelector',
   			 'scopedType',
   			 'DIV',
   			 'attribute',
@@ -49,6 +50,7 @@
 			 'qunit-testrunner-toolbar', 
 			 'idselector',
   			 'classSelector',
+  			 '.#:classSelector',
   			 'scopedType',
   			 'DIV',
   			 'attribute',
@@ -62,7 +64,7 @@
 	});
 
 	test('class selector', function() {
-		expect(4);
+		expect(5);
 
 		var selector = '.classSelector';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), ['classSelector'], selector);
@@ -71,6 +73,9 @@
 		selector = 'div.classSelector';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), ['classSelector'], selector);
 		deepEqual(nodeIdOrNames(peppy.query(selector, null, { useClass: true })), ['classSelector'], selector + ' useClass');
+
+		selector = 'div.\\.\\#\\:classSelector';
+		deepEqual(nodeIdOrNames(peppy.query(selector)), ['.#:classSelector'], selector);
 	});
 
 	test('combinators', function() {
@@ -121,7 +126,7 @@
 		selector = '#attribute *[data-value*=test2]';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListEq1'], selector);
 
-		selector = '#attribute *[data-value*=test3]';
+		selector = '#attribute *[data-value*=\rtest3]';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), ['attrListEq1'], '#attribute *[data-value*=\\rtest3]');
 
 		selector = '#attribute *[data-value|=testHyph1]';
@@ -196,7 +201,7 @@
 		selector = '#not:not(*)';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), [], selector);
 
-		selector = '#not:not(:nth-child(10))';
+		selector = '#not:not(:nth-child(11))';
 		deepEqual(nodeIdOrNames(peppy.query(selector)), [], selector);
 
 		selector = '#not:not(:nth-child(8))';

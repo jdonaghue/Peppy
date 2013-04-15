@@ -181,11 +181,12 @@
 			else {
 				// SELECTOR
 				var type;
-				if (selectorStack.length == 0 
+				if ((selectorStack.length == 0 
 					|| lastInStack.type == _LL.COMB
-					|| character in { '[':0, '.':1, '#':2, '*':3 }
+					|| character in { '[':0, '.':1, '#':2, '*':3, '\\':4 }
 					|| (character == ':'
-						&& selector[i-1] != ':')) {
+						&& selector[i-1] != ':'))
+					&& character != '\\') {
 
 					switch(character) {
 						case '*' : {
@@ -264,6 +265,10 @@
 					});
 				}
 				else {
+					if (character == '\\') {
+						i++;
+						character = selector[i];
+					}
 					lastInStack.value += character;
 				}
 			}

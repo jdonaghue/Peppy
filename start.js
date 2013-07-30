@@ -33,5 +33,6 @@
 	E + F					an F element immediately preceded by an E element	
 	E ~ F					an F element preceded by an E element	
 **/
-(function() {
+(function(global, doc) {
+
 	

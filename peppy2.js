@@ -33,9 +33,7 @@
 	E + F					an F element immediately preceded by an E element	
 	E ~ F					an F element preceded by an E element	
 **/
-(function() {
-	
-﻿
+(function(global, doc) {
 
 	var _LL = {
 		UNIV: 0,
@@ -47,7 +45,7 @@
 		PSEL: 6,
 		PSCLS: 7,
 		NOT: 8,
-		CONT: 9,
+		HAS: 9,
 		NTH: 10
 	};
 
@@ -76,12 +74,18 @@
 	function parseAttribute(start, selector, obj) {
 		obj.left = '';
 		obj.right = '';
-		obj.op
+		obj.op = '';
+
+		var insideQuotes = false;
 
 		for (var i = start; i < selector.length; i++) {
 			var c = selector[i];
+
+			if (c == '\'' || c == '"') {
+				insideQuotes = !insideQuotes;
+			}
 			
-			if (c == ']') {
+			if (!insideQuotes && c == ']') {
 				return i;
 			}
 
@@ -89,11 +93,11 @@
 				if (c in {'+':0, '~': 1, '=': 2, '$': 3, '|': 4, '^': 5, '*': 6}) {
 					obj.op += c;
 				}
-				else if (c != ' ' && c!= '\n' && c != '\r' && c != '\t') {
+				else if (c != ' ' && c!= '\n' && c != '\r' && c != '\t' && c != '\\') {
 					obj.left += c;
 				}
 			}
-			else if (c != ' ' && c!= '\n' && c != '\r' && c != '\t') {
+			else if (c != ' ' && c!= '\n' && c != '\r' && c != '\t' && c != '\'' && c != '"') {
 				obj.right += c;
 			}
 		}
@@ -101,7 +105,7 @@
 		return selector.length - 1;
 	}
 
-	function parseRecursivePseudo(start, selector, obj) {
+	function parseRecursivePseudo(start, selector, obj, preventRecursiveLex) {
 		obj.value = '';
 
 		var paranthCount = 1;	
@@ -115,7 +119,9 @@
 			
 			if (c == ')') {
 				if (--paranthCount == 0) {
-					obj.value = _LL.lex(obj.value);
+					if (!preventRecursiveLex) {
+						obj.value = _LL.lex(obj.value);
+					}
 					return i;
 				}
 			}
@@ -146,6 +152,9 @@
 		var groups = [],
 			selectorStack = [];
 
+		// first trim the selector
+		selector = selector.replace(/(^\s+|\s+$)/g, '');
+
 		for (var i = 0, len = selector.length; i < len; i++) {
 			var character = selector[i],
 				characterAhead = selector[i + 1],
@@ -160,6 +169,7 @@
 			}
 			else if (character in _COMBINATORS 
 				&& characterAhead != '='
+				&& selector[nextNonSpace(selector, i+1) + 1] != ','
 				&& (lastInStack.type != _LL.PSCLS 
 					|| lastInStack.value.indexOf('nth-child') == -1 
 					|| lastInStack.value[lastInStack.value.length-1] == ')')) {
@@ -183,6 +193,7 @@
 				var type;
 				if ((selectorStack.length == 0 
 					|| lastInStack.type == _LL.COMB
+					|| lastInStack.type == _LL.ATTR
 					|| character in { '[':0, '.':1, '#':2, '*':3, '\\':4 }
 					|| (character == ':'
 						&& selector[i-1] != ':'))
@@ -220,9 +231,21 @@
 										value: '',
 										op: 'CONTAINS'
 									}
+									i = parseRecursivePseudo(i+10, selector, character, true);
+									character = {
+										value: ':contains',
+										content: character.value.replace(/['"]/g, '')
+									}
+									type = _LL.PSCLS;
+								}
+								else if (selector.substr(i + 1, 3) == 'has') {
+									character = {
+										value: '',
+										op: 'HAS'
+									}
 									i = parseRecursivePseudo(i+10, selector, character);
 									character = character.value;
-									type = _LL.CONT;
+									type = _LL.HAS;
 								}
 								else if (selector.substr(i +1, 3) == 'nth') {
 									character= {
@@ -259,17 +282,29 @@
 							break;
 						}
 					}
-					selectorStack.push({
-						type: type,
-						value: character
-					});
+					if (character.content) {
+						selectorStack.push({
+							type: type,
+							value: character.value || character,
+							content: character.content
+						});
+					}
+					else {
+						selectorStack.push({
+							type: type,
+							value: character
+						});
+					}
 				}
 				else {
 					if (character == '\\') {
 						i++;
-						character = selector[i];
+						character = character + selector[i];
 					}
-					lastInStack.value += character;
+					
+					if (character != ' ' && character != '\n' && character != '\r' && character != '\t') {
+						lastInStack.value += character;
+					}
 				}
 			}
 		}
@@ -278,21 +313,24 @@
 		return groups;
 	}
 	
-	var _doc = document,
-		_win = window;
+	var _doc = doc,
+		_win = global;
 
 	_win.peppy = {
+
 		query: function(selector, context, opts) {
 			var tree = _LL.lex(selector),
 				results = [];
 
 			for(var groupIndex=0, groupLength=tree.length; groupIndex < groupLength; groupIndex++) {
-				results = results.concat(this.querySelector(tree[groupIndex], context, opts));
+				results = results.concat(this._querySelector(tree[groupIndex], context, opts));
 			}
+
+			results = _filterUnique(results);
 			return results;
 		},
 
-		querySelector: function(selectorTree, context, opts) {
+		_querySelector: function(selectorTree, context, opts) {
 			var results = [],
 				lastSelectorData;
 
@@ -308,25 +346,31 @@
 				
 				switch(selectorData.type) {
 					case _LL.ID : {
-						if (opts.useId || results.length != 0) {
+						if (opts.useId || results.length != 0 || selectorData.value.indexOf('\\') > -1) {
+							if (results.length == 0) {
+								results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+							}
 							var tmpId = [];
 							for (var index=0, len=results.length; index < len; index++) {
-								if (results[index].getAttribute('id') && results[index].getAttribute('id').toUpperCase() == selectorData.value.replace('#', '').toUpperCase()) {
+								if (results[index].getAttribute('id') && results[index].getAttribute('id').toUpperCase() == selectorData.value.replace('#', '').replace(/\\/g, '').toUpperCase()) {
 									tmpId.push(results[index]);
 								}
 							}
 							results = tmpId;	
 						}
 						else {
-							results.push(_doc.getElementById(selectorData.value.replace('#', '')));
+							var tmpId = _doc.getElementById(selectorData.value.replace('#', ''));
+							if (tmpId) {
+								results.push(tmpId);
+							}
 						}
 						break;
 					}
-					case _LL.UNIV:
-					case _LL.TYPE: {
+					case _LL.UNIV :
+					case _LL.TYPE : {
 						if (opts.useType || results.length != 0) {
 							if (results.length == 0) {
-								results = _getAllDescendants(context);
+								results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
 							}
 							var tmpType = [];
 							for (var index = 0, len = results.length; index < len; index++) {
@@ -337,21 +381,22 @@
 							results = tmpType;
 						}
 						else {
-							ndList = context.getElementsByTagName(selectorData.value);
+							var ndList = context.getElementsByTagName(selectorData.value);
 							for (var index = 0, len = ndList.length; index < len; index++) {
 								results.push(ndList[index]);
 							}
 						}
 						break;
 					}
-					case _LL.CLS: {
-						if (opts.useClass || results.length != 0 || !context.getElementsByTagName) {
+					case _LL.CLS : {
+						if (opts.useClass || results.length != 0 || !context.getElementsByTagName || selectorData.value.indexOf('\\') > -1) {
 							if (results.length == 0) {
 								results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
 							}
 
 							var tmpClass = [],
-								classRE = new RegExp('(^|\s)' + selectorData.value.replace('.', '') + '($|\s)');
+								classString = selectorData.value.replace('.', ''),
+								classRE = new RegExp('(^|\\s)' + selectorData.value.replace('.', '') + '($|\\s)');
 
 							for (var index = 0, len = results.length; index < len; index++) {
 								if (classRE.test(results[index].className)) {
@@ -368,9 +413,9 @@
 						}
 						break;
 					}
-					case _LL.COMB: {
+					case _LL.COMB : {
 						switch(selectorData.value) {
-							case ' ': {
+							case ' ' : {
 								var tmpCombDesc = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									tmpCombDesc = tmpCombDesc.concat(_getAllDescendants(results[index]));
@@ -379,12 +424,12 @@
 								tmpCombDesc = undefined;
 								break;
 							}
-							case '+': {
+							case '+' : {
 								var tmpCombNext = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var nextEl = results[index].nextSibling;
 									do {
-										if (nextEl.nodeType == 1) {
+										if (!nextEl || nextEl.nodeType == 1) {
 											break;
 										}
 									}
@@ -396,13 +441,13 @@
 								results = tmpCombNext;
 								break;
 							}
-							case '~': {
+							case '~' : {
 								var tmpCombNextAll = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var nextEl = results[index].nextSibling;
 									do {
-										if (nextEl.nodeType == 1) {
-											tmpCombNextAll.push(nextEl);	
+										if (nextEl && nextEl.nodeType == 1) {
+											tmpCombNextAll.push(nextEl);
 										}
 									}
 									while((nextEl = nextEl.nextSibling));
@@ -410,7 +455,7 @@
 								results = tmpCombNextAll;
 								break;
 							}
-							case '>': {
+							case '>' : {
 								var tmpCombChild = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var nextEl = results[index].childNodes[0];
@@ -428,35 +473,44 @@
 						}
 						break;
 					}
-					case _LL.ATTR: {
+					case _LL.ATTR : {
 						switch(selectorData.value.op) {
-							case '': {
+							case '' : {
+								if (results.length == 0) {
+									results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+								}
 								var tmpAttrExist = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
-									if (el.getAttribute(selectorData.value.left)) {
+									if (_getAttribute(el, selectorData.value.left) != undefined) {
 										tmpAttrExist.push(el);
 									}
 								}
 								results = tmpAttrExist;
 								break;
 							}
-							case '=': {
+							case '=' : {
+								if (results.length == 0) {
+									results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+								}
 								var tmpAttrEq = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
-									if (el.getAttribute(selectorData.value.left) == selectorData.value.right) {
+									if (_getAttribute(el, selectorData.value.left) == selectorData.value.right) {
 										tmpAttrEq.push(el);
 									}
 								}
 								results = tmpAttrEq;
 								break;
 							}
-							case '~=': {
+							case '~=' : {
+								if (results.length == 0) {
+									results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+								}
 								var tmpAttrListEq = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
-										attr = el.getAttribute(selectorData.value.left);
+										attr = _getAttribute(el, selectorData.value.left);
 
 									if (attr) {
 										var attrList = attr.split(/\s+/);
@@ -471,11 +525,14 @@
 								results = tmpAttrListEq;
 								break;
 							}
-							case '^=': {
+							case '^=' : {
+								if (results.length == 0) {
+									results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+								}
 								var tmpAttrBegins = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
-										attr = el.getAttribute(selectorData.value.left);
+										attr = _getAttribute(el, selectorData.value.left);
 
 									if (attr && attr.indexOf(selectorData.value.right) == 0) {
 										tmpAttrBegins.push(el);
@@ -484,21 +541,27 @@
 								results = tmpAttrBegins;
 								break;
 							}
-							case '$=': {
+							case '$=' : {
+								if (results.length == 0) {
+									results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+								}
 								var tmpAttrEnds = [],
 									attrRE = new RegExp(selectorData.value.right + '$');
 
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
 
-									if (attrRE.test(el.getAttribute(selectorData.value.left))) {
+									if (attrRE.test(_getAttribute(el, selectorData.value.left))) {
 										tmpAttrEnds.push(el);
 									}
 								}
 								results = tmpAttrEnds;
 								break;
 							}
-							case '*=': {
+							case '*=' : {
+								if (results.length == 0) {
+									results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+								}
 								var tmpAttrContains = [],
 									attrRE = new RegExp(selectorData.value.right + '$');
 
@@ -506,18 +569,21 @@
 									var el = results[index],
 										attrRE = new RegExp('.*' + selectorData.value.right + '.*');
 
-									if (attrRE.test(el.getAttribute(selectorData.value.left))) {
+									if (attrRE.test(_getAttribute(el, selectorData.value.left))) {
 										tmpAttrContains.push(el);
 									}
 								}
 								results = tmpAttrContains;
 								break;
 							}
-							case '|=': {
+							case '|=' : {
+								if (results.length == 0) {
+									results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+								}
 								var tmpAttrHyphenListBegin = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
-										attr = el.getAttribute(selectorData.value.left);
+										attr = _getAttribute(el, selectorData.value.left);
 
 									if (attr) {
 										var attrList = attr.split('-');
@@ -532,9 +598,9 @@
 						}
 						break;
 					}
-					case _LL.PSCLS: {
+					case _LL.PSCLS : {
 						switch(selectorData.value) {
-							case ':first-child': {
+							case ':first-child' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
@@ -544,6 +610,7 @@
 									while(prev) {
 										if (prev.nodeType == 1) {
 											found = true;
+											break;
 										}
 										prev = prev.previousSibling;
 									}
@@ -554,7 +621,7 @@
 								results = tmpPS;
 								break;
 							}
-							case ':last-child': {
+							case ':last-child' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
@@ -564,6 +631,7 @@
 									while(next) {
 										if (next.nodeType == 1) {
 											found = true;
+											break;
 										}
 										next = next.nextSibling;
 									}
@@ -574,7 +642,8 @@
 								results = tmpPS;
 								break;
 							}
-							case ':first-of-type': {
+							case ':first' :
+							case ':first-of-type' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
@@ -585,6 +654,7 @@
 									while(prev) {
 										if (prev.nodeType == 1 && prev.nodeName == nodeName) {
 											found = true;
+											break;
 										}
 										prev = prev.previousSibling;
 									}
@@ -595,7 +665,8 @@
 								results = tmpPS;
 								break;
 							}
-							case ':last-of-type': {
+							case ':last' :
+							case ':last-of-type' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
@@ -606,6 +677,7 @@
 									while(next) {
 										if (next.nodeType == 1 && next.nodeName == nodeName) {
 											found = true;
+											break;
 										}
 										next = next.nextSibling;
 									}
@@ -616,7 +688,7 @@
 								results = tmpPS;
 								break;
 							}
-							case ':only-child': {
+							case ':only-child' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
@@ -636,7 +708,7 @@
 								results = tmpPS;
 								break;
 							}
-							case ':only-of-type': {
+							case ':only-of-type' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index],
@@ -657,7 +729,7 @@
 								results = tmpPS;
 								break;
 							}
-							case ':empty': {
+							case ':empty' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
@@ -668,40 +740,40 @@
 								results = tmpPS;
 								break;
 							}
-							case ':enabled': {
+							case ':enabled' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
-									if (!el.getAttribute('disabled')) {
+									if (!_getAttribute(el, 'disabled')) {
 										tmpPS.push(el);
 									}
 								}
 								results = tmpPS;
 								break;
 							}
-							case ':disabled': {
+							case ':disabled' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
-									if (el.getAttribute('disabled')) {
+									if (_getAttribute(el, 'disabled')) {
 										tmpPS.push(el);
 									}
 								}
 								results = tmpPS;
 								break;
 							}
-							case ':checked': {
+							case ':checked' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
-									if (el.getAttribute('checked')) {
+									if (_getAttribute(el, 'checked')) {
 										tmpPS.push(el);
 									}
 								}
 								results = tmpPS;
 								break;
 							}
-							case ':hidden': {
+							case ':hidden' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
@@ -712,7 +784,7 @@
 								results = tmpPS;
 								break;
 							}
-							case ':visible': {
+							case ':visible' : {
 								var tmpPS = [];
 								for (var index = 0, len = results.length; index < len; index++) {
 									var el = results[index];
@@ -723,10 +795,49 @@
 								results = tmpPS;
 								break;
 							}
+							case ':selected' : {
+								var tmpPS = [];
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									/*!
+									 * Sizzle CSS Selector Engine v@VERSION
+									 * http://sizzlejs.com/
+									 *
+									 * Copyright 2013 jQuery Foundation, Inc. and other contributors
+									 * Released under the MIT license
+									 * http://jquery.org/license
+									 *
+									 * Date: @DATE
+									 */
+									// Accessing this property makes selected-by-default
+									// options in Safari work properly
+									if ( el.parentNode ) {
+										el.parentNode.selectedIndex;
+									}
+
+									if (el.selected === true) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
+							case ':contains' : {
+								var tmpPS = [],
+									value = selectorData.content;
+								for (var index = 0, len = results.length; index < len; index++) {
+									var el = results[index];
+									if ((el.textContent || el.innerText || '').indexOf( value ) > -1) {
+										tmpPS.push(el);
+									}
+								}
+								results = tmpPS;
+								break;
+							}
 						}
 						break;
 					}
-					case _LL.NTH: {
+					case _LL.NTH : {
 						if (selectorData.value.toLowerCase() == 'odd') {
 							selectorData.value = '2n+1';
 						}
@@ -736,61 +847,58 @@
 
 						var tmpNth = [],
 							nthParts = selectorData.value.split('n'),
-							a = nthParts[0] || 0,
+							a = nthParts[0] || 1,
 							b = nthParts[1] || 0;
+
+						if (a == '1' || a == '+1') {
+							a = 1;
+						}
+						else if (a == '-' || a == '-1') {
+							a = -1;
+						}
+
+						b = b * 1; // cast to number
 
 						for (var index = 0, len = results.length; index < len; index++) {
 							var el = results[index],
 								next = el.parentNode.childNodes[0],
 								nodeName = el.nodeName,
 								count = 1,
-								elsIndex = 1;
+								elPosition = 1;
 
 							while(next) {
 								if (next.nodeType == 1) {
 									if (next == el) {
-										elsIndex = count;
+										elPosition = count;
 									}
 									count++;
 								}
 								next = next.nextSibling;
 							}
 
-							// form an+b:
-							// handle index based and n+1, n-1, etc cases here:
-							if (!isNaN(selectorData.value) || a == 0) {
-								if (!isNaN(selectorData.value)) {
-							 		if (elsIndex == selectorData.value) {
+							if (!isNaN(selectorData.value)) {
+								if (elPosition == selectorData.value) {
+									tmpNth.push(el);
+								}
+							}
+							else {								
+								for (var i=0; i<count; i++) {
+									var num = a * i + b;
+									if (elPosition == num) {
 										tmpNth.push(el);
+										break;
 									}
 								}
-								else {
-									var op = b[0],
-										bPos = b.substr(1);
-
-									if (op == '-') {
-										if (elsIndex == count - bPos) {
-											tmpNth.push(el);
-										}
-									}
-									else {
-										if (elsIndex == bPos) {
-											tmpNth.push(el);
-										}
-									}
-								} 
-							} 
-							// handle full an+b, an-b, even, odd cases here:
-							else if (a == 0 ? elsIndex == b :
-                               a > 0 ? elsIndex >= b && (elsIndex - b) % a == 0 :
-                                         elsIndex <= b && (elsIndex + b) % a == 0) {
-								tmpNth.push(el);
 							}
 						}
 						results = tmpNth;
 						break;
 					}
-					case _LL.NOT: {
+					case _LL.NOT : {
+						if (this.useStrict && !(selectorData.value[0][0].type in {0:0, 1:0, 2:0, 3:0, 4:0})) {
+							// if strictly conforming to spec only allow simple selectors
+							break;
+						}
 						var tmpNot = [],
 							origTestContext = opts.testContext;
 
@@ -799,7 +907,7 @@
 						for (var index = 0, len = results.length; index < len; index++) {
 							var el = results[index];
 
-							if (this.querySelector(selectorData.value[0], el, opts).length == 0) {
+							if (this._querySelector(selectorData.value[0], el, opts).length == 0) {
 								tmpNot.push(el);
 							}
 						}
@@ -807,12 +915,12 @@
 						results = tmpNot;
 						break;
 					}
-					case _LL.CONT: {
+					case _LL.HAS : {
 						var tmpCont = [];
 						for (var index = 0, len = results.length; index < len; index++) {
 							var el = results[index];
 
-							if (this.querySelector(selectorData.value[0], el, opts).length > 0) {
+							if (this._querySelector(selectorData.value[0], el, opts).length > 0) {
 								tmpCont.push(el);
 							}
 						}
@@ -831,24 +939,48 @@
 		}
 	}
 
+	function _filterUnique(results) {
+		var unique = [];
+
+		for (var i=0, iLen=results.length; i<iLen; i++) {
+			var isUnique = true;
+
+			for (var j=0, jLen=unique.length; j<jLen; j++) {
+				if (unique[j] == results[i]) {
+					isUnique = false;
+				}
+			}
+
+			if (isUnique) {
+				unique.push(results[i]);
+			}
+		}
+
+		return unique;
+	}
+
+	function _getAttribute(el, attr) {
+		return el.getAttribute(attr) || el.attributes[attr] ? el.attributes[attr].value : undefined;
+	}
+
 	function _getAllDescendants(context) {
 		var results = [];
 
-		if (context == _doc) {
+		if (!context) {
 			context = _doc;
 		}
 
 		(function(context) {
-		    for (var i= 0, n= context.childNodes.length; i<n; i++) {
-		        var child= context.childNodes[i];
-		        
-		        if (child.nodeType == 1) {
-		        	results.push(child);
-		            arguments.callee(child);
-		        }
-		    }
+			for (var i= 0, len= context.childNodes.length; i<len; i++) {
+				var child= context.childNodes[i];
+				
+				if (child.nodeType == 1) {
+					results.push(child);
+					arguments.callee(child);
+				}
+			}
 		}(context));
 
 		return results;
 	}
-}());
+}(window, document));

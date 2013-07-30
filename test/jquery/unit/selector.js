@@ -142,9 +142,9 @@ test("multiple", function() {
 	
 	var results = ["mark","simon","firstp","ap","sndp","en","sap","first"];
 	
-	if ( document.querySelectorAll || NW.Dom ) {
-		results = ["firstp","ap","mark","sndp","en","sap","simon","first"];
-	}
+	// if ( document.querySelectorAll ) {
+	// 	results = ["firstp","ap","mark","sndp","en","sap","simon","first"];
+	// }
 	
 	t( "Comma Support", "a.blog, p", results);
 	t( "Comma Support", "a.blog , p", results);
@@ -179,24 +179,24 @@ test("child and adjacent", function() {
 	t( "Nth-child", "#main form#form > *:nth-child(2)", ["text1"] );
 	t( "Nth-child", "#main form#form > :nth-child(2)", ["text1"] );
 
-	t( "Nth-child", "#form select:first option:nth-child(3)", ["option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(0n+3)", ["option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(1n+0)", ["option1a", "option1b", "option1c", "option1d"] );
-	t( "Nth-child", "#form select:first option:nth-child(1n)", ["option1a", "option1b", "option1c", "option1d"] );
-	t( "Nth-child", "#form select:first option:nth-child(n)", ["option1a", "option1b", "option1c", "option1d"] );
-	t( "Nth-child", "#form select:first option:nth-child(even)", ["option1b", "option1d"] );
-	t( "Nth-child", "#form select:first option:nth-child(odd)", ["option1a", "option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(2n)", ["option1b", "option1d"] );
-	t( "Nth-child", "#form select:first option:nth-child(2n+1)", ["option1a", "option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n)", ["option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n+1)", ["option1a", "option1d"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n+2)", ["option1b"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n+3)", ["option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n-1)", ["option1b"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n-2)", ["option1a", "option1d"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n-3)", ["option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(3n+0)", ["option1c"] );
-	t( "Nth-child", "#form select:first option:nth-child(-n+3)", ["option1a", "option1b", "option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3)", ["option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(0n+3)", ["option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(1n+0)", ["option1a", "option1b", "option1c", "option1d"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(1n)", ["option1a", "option1b", "option1c", "option1d"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(n)", ["option1a", "option1b", "option1c", "option1d"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(even)", ["option1b", "option1d"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(odd)", ["option1a", "option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(2n)", ["option1b", "option1d"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(2n+1)", ["option1a", "option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n)", ["option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n+1)", ["option1a", "option1d"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n+2)", ["option1b"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n+3)", ["option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n-1)", ["option1b"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n-2)", ["option1a", "option1d"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n-3)", ["option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(3n+0)", ["option1c"] );
+	t( "Nth-child", "#form select:first-of-type option:nth-child(-n+3)", ["option1a", "option1b", "option1c"] );
 });
 
 test("attributes", function() {
@@ -215,9 +215,9 @@ test("attributes", function() {
 	
 	var results = ["hidden1","radio1","radio2"];
 	
-	if ( document.querySelectorAll || NW.Dom ) {
-		results = ["radio1", "radio2", "hidden1"];
-	}
+	// if ( document.querySelectorAll ) {
+	// 	results = ["radio1", "radio2", "hidden1"];
+	// }
 	
 	t( "Multiple Attribute Equals", "#form input[type='hidden'],#form input[type='radio']", results );
 	t( "Multiple Attribute Equals", "#form input[type=\"hidden\"],#form input[type='radio']", results );
@@ -279,7 +279,7 @@ test("pseudo (:) selectors", function() {
 	
 	var results = ["check1","radio2"];
 	
-	if ( document.querySelectorAll || NW.Dom ) {
+	if ( document.querySelectorAll || peppy.query) {
 		results = ["radio2", "check1"];
 	}
 	

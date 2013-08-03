@@ -142,9 +142,9 @@ test("multiple", function() {
 	
 	var results = ["mark","simon","firstp","ap","sndp","en","sap","first"];
 	
-	// if ( document.querySelectorAll ) {
-	// 	results = ["firstp","ap","mark","sndp","en","sap","simon","first"];
-	// }
+	if ( document.querySelectorAll || peppy) {
+		results = ["firstp","ap","mark","sndp","en","sap","simon","first"];
+	}
 	
 	t( "Comma Support", "a.blog, p", results);
 	t( "Comma Support", "a.blog , p", results);
@@ -215,9 +215,9 @@ test("attributes", function() {
 	
 	var results = ["hidden1","radio1","radio2"];
 	
-	// if ( document.querySelectorAll ) {
-	// 	results = ["radio1", "radio2", "hidden1"];
-	// }
+	if ( document.querySelectorAll || peppy) {
+		results = ["radio1", "radio2", "hidden1"];
+	}
 	
 	t( "Multiple Attribute Equals", "#form input[type='hidden'],#form input[type='radio']", results );
 	t( "Multiple Attribute Equals", "#form input[type=\"hidden\"],#form input[type='radio']", results );
@@ -258,14 +258,31 @@ test("pseudo (:) selectors", function() {
     t( "Not - complex", "#form option:not([id^='opt']:nth-child(-n+3))", [ "option1d", "option2d", "option3d", "option3e"] );
 	t( "Not - recursive", "#form option:not(:not(:selected))[id^='option3']", [ "option3b", "option3c"] );
 
-	t( "nth Element", "p:nth(1)", ["ap"] );
-	t( "First Element", "p:first", ["firstp"] );
-	t( "Last Element", "p:last", ["first"] );
-	t( "Even Elements", "p:even", ["firstp","sndp","sap"] );
-	t( "Odd Elements", "p:odd", ["ap","en","first"] );
-	t( "Position Equals", "p:eq(1)", ["ap"] );
-	t( "Position Greater Than", "p:gt(0)", ["ap","sndp","en","sap","first"] );
-	t( "Position Less Than", "p:lt(3)", ["firstp","ap","sndp"] );
+	// changed since peppy is 1 indexed
+	//t( "nth Element", "p:nth(1)", ["ap"] );
+	t( "nth Element", "p:nth(1)", ["firstp", "sndp"] );
+	// changed since peppy is 1 indexed
+	//t( "First Element", "p:first", ["firstp"] );
+	t( "First Element", "p:first", ["firstp", "sndp"] );
+	// changed since peppy is 1 indexed
+	//t( "Last Element", "p:last", ["first"] );
+	t( "Last Element", "p:last", ["sap", "first"] );
+	// changed since peppy is 1 indexed
+	//t( "Even Elements", "p:even", ["firstp","sndp","sap"] );
+	t( "Even Elements", "p:even", ["ap","en","first"] );
+	// changed since peppy is 1 indexed
+	//t( "Odd Elements", "p:odd", ["ap","en","first"] );
+	t( "Odd Elements", "p:odd", ["firstp","sndp","sap"] );
+	// changed since peppy is 1 indexed
+	//t( "Position Equals", "p:eq(1)", ["ap"] );
+	t( "Position Equals", "p:eq(1)", ["firstp", "sndp"] );
+	// changed since peppy is 1 indexed, also it shouldn't include #sndp
+	//t( "Position Greater Than", "p:gt(0)", ["ap","sndp","en","sap","first"] );
+	t( "Position Greater Than", "p:gt(1)", ["ap","en","sap","first"] );
+	// changed since peppy is 1 indexed
+	//t( "Position Less Than", "p:lt(3)", ["firstp","ap","sndp"] );
+	t( "Position Less Than", "p:lt(3)", ["firstp", "ap", "sndp", "en"] );
+
 	t( "Is A Parent", "p:parent", ["firstp","ap","sndp","en","sap","first"] );
 	t( "Is Visible", "#form input:visible", ["text1","text2","radio1","radio2","check1","check2","name"] );
 	t( "Is Hidden", "#form input:hidden", ["hidden1","hidden2"] );
@@ -279,7 +296,7 @@ test("pseudo (:) selectors", function() {
 	
 	var results = ["check1","radio2"];
 	
-	if ( document.querySelectorAll || peppy.query) {
+	if ( document.querySelectorAll || peppy) {
 		results = ["radio2", "check1"];
 	}
 	

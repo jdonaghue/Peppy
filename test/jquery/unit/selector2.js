@@ -415,7 +415,7 @@ test("pseudo (:) selectors", function() {
 	div.style.fontSize = '';
 	div.style.lineHeight = '';
 //	$div.width('').height('').css({ fontSize: '', lineHeight: '' });
-/*
+
 	t( "Check position filtering", "div#nothiddendiv:eq(0)", ["nothiddendiv"] );
 	t( "Check position filtering", "div#nothiddendiv:last", ["nothiddendiv"] );
 	t( "Check position filtering", "div#nothiddendiv:not(:gt(0))", ["nothiddendiv"] );
@@ -434,7 +434,7 @@ test("pseudo (:) selectors", function() {
 	t( "Check element position", "#dl div:first div:first", ["foo"] );
 	t( "Check element position", "#dl div:first > div:first", ["foo"] );
 	t( "Check element position", "div#nothiddendiv:first > div:first", ["nothiddendivchild"] );
-*/	
+	
 	t( "Form element :input", "#form :input", ["text1", "text2", "radio1", "radio2", "check1", "check2", "hidden1", "hidden2", "name", "search", "button", "area1", "select1", "select2", "select3"] );
 	t( "Form element :radio", "#form :radio", ["radio1", "radio2"] );
 	t( "Form element :checkbox", "#form :checkbox", ["check1", "check2"] );

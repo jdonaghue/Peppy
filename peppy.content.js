@@ -99,7 +99,7 @@
 
 		var results = [];
 		if (!context) {
-			context = _doc;
+			context = doc;
 		}
 
 		(function(context) {
@@ -135,7 +135,7 @@
 				results = tmpId;	
 			}
 			else {
-				var tmpId = _doc.getElementById(selectorData.value.replace('#', ''));
+				var tmpId = doc.getElementById(selectorData.value.replace('#', ''));
 				if (tmpId) {
 					results.push(tmpId);
 				}
@@ -852,7 +852,7 @@
 		byRoot: function(selectorData, results, context, opts) {
 
 			if (results.length == 0) {
-				results = [_doc.documentElement];
+				results = [doc.documentElement];
 			}
 			else {
 				results = [];
@@ -985,11 +985,8 @@
 	};
 
 	/************************** PUBLIC API *************************/
-	
-	var _doc = doc,
-		_win = global;
 
-	_win.peppy = {
+	global.peppy = {
 
 		api: _internalAPI,
 
@@ -998,8 +995,29 @@
 		 */
 		query: function(selector, context, opts) {
 
-			var tree = Object.prototype.toString.call(selector) === '[object Array]' ? selector : _LL.lex(selector),
+			var isAST = Object.prototype.toString.call(selector) == '[object Array]',
+				tree = isAST ? selector : _LL.lex(selector),
 				results = [];
+
+			if (!isAST && doc.querySelectorAll) {
+				var nl,
+					skipQSA = false;
+
+				try { nl = doc.querySelectorAll(selector); } catch(e) { skipQSA = true; }
+
+				if (!skipQSA) {
+					results = Array.prototype.slice.call(nl);
+					
+					if (results instanceof NodeList) {
+						results = [];
+						for(var i=0,len=nl.length; i<len; i++) {
+							results.push(nl[i]);
+						}
+					}
+
+					return results;
+				}
+			}
 
 			for(var groupIndex=0, groupLength=tree.length; groupIndex < groupLength; groupIndex++) {
 				results = results.concat(this._querySelector(tree[groupIndex], context, opts));
@@ -1020,7 +1038,7 @@
 
 			var results = [];
 
-			context = context || _doc;
+			context = context || doc;
 			opts = opts || {};
 
 			if (opts.testContext && context.nodeType == 1) {

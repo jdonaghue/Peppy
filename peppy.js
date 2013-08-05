@@ -1,705 +1,1659 @@
-/*
-   Peppy - A lightning fast CSS 3 Compliant selector engine.
-   http://www.w3.org/TR/css3-selectors/#selectors
-
-   version 0.1.2
-
-   Author: James Donaghue - james.donaghue@gmail.com
-
-   Copyright (c) 2008 James Donaghue (jamesdonaghue.com)
-   Licenced under the FreeBSD (http://www.freebsd.org/copyright/freebsd-license.html) licence.
-
-*/
-(function(){
-    var _doc = document,
-        _isIE = /(?!.*?opera.*?)msie(?!.*?opera.*?)/i.test(navigator.userAgent),
-        _isWebKit = /webkit/i.test(navigator.userAgent),
-        _cache = {},
-        _cacheOn = !_isIE && !_isWebKit,
-        _persistCache = {},
-        _uid = 0,
-        _reg = {
-            trim : /^\s+|\s+$/g,
-            quickTest : /^[^:\[>+~ ,]+$/,
-            typeSelector : /(^[^\[:]+?)(?:\[|\:|$)/,
-            tag : /^(\w+|\*)/,
-            id : /^(\w*|\*)#/,
-            classRE : /^(\w*|\*)\./,
-            attributeName : /(\w+)(?:[!+~*\^$|=])|\w+/,
-            attributeValue : /(?:[!+~*\^$|=]=*)(.+)(?:\])/,
-            pseudoName :  /(\:[^\(]+)/,
-            pseudoArgs : /(?:\()(.+)(?:\))/,
-            nthParts : /([+-]?\d)*(n)([+-]\d+)*/i,
-            combinatorTest : /[+>~ ](?![^\(]+\)|[^\[]+\])/,
-            combinator :  /\s*[>~]\s*(?![=])|\s*\+\s*(?![0-9)])|\s+/g,
-            recursive : /:(not|has)\((\w+|\*)?([#.](\w|\d)+)*(\:(\w|-)+(\([^\)]+\))?|\[[^\}]+\])*(\s*,\s*(\w+|\*)?([#.](\w|\d)+)*(\:(\w|-)+(\([^\)]+\))?|\[[^\}]+\])*)*\)/gi
-        },
-        arrayIt = function(){
-            if (!!(window.attachEvent && !window.opera)) {
-                return function(a){
-                    if (a instanceof Array) return a;
-                    for (var i=0, result = [], m; m = a[ i++ ];)
-                        result[ result.length ] = m;
-                    return result;
-                };
-            } else {
-                return function(a){
-                    return Array.prototype.slice.call(a);
-                };
-            }
-        }();
-
-    // Filters a list of elements for uniqueness.
-    function filter(a, tag) {
-        var r = [],
-            uids = {};
-        if (tag) tag = new RegExp("^" + tag + "$", "i");
-        for (var i = 0, ae; ae = a[ i++ ];) {
-            ae.uid = ae.uid || _uid++;
-            if (!uids[ae.uid] && (!tag || ae.nodeName.search(tag) !== -1)) {
-                r[r.length] = uids[ae.uid] = ae;
-            }
-        }
-        return r;
-    }
-
-    // getAttribute - inspired by EXT -> http://extjs.com
-    // Copyright(c) 2006-2008, Ext JS, LLC.
-     // http://extjs.com/license
-    function getAttribute(e, a) {
-        if (e) {
-            if (a === "class" || a === "className") {
-                return e.className;
-            }
-
-            if (a === "for") {
-                return e.htmlFor;
-            }
-
-            return e.getAttribute(a) || e[a];
-        }
-        return null;
-    }
-
-    function getByClass(selector, selectorRE, root, includeRoot, cacheKey, tag, flat) {
-    
-        var result = [];
-
-        if (flat) {
-            return selectorRE.test(root.className) ? [root] : [];
-        }
-
-        if (root.getElementsByClassName) {
-            result = arrayIt(root.getElementsByClassName(selector));
-
-            if (!!includeRoot) {
-                if (selectorRE.test(root.className)) result[ result.length ] = root;
-            }
-
-            if (tag != "*") {
-                result = filter(result, tag);
-            }
-            
-            _cache[ cacheKey ] = result.slice(0);
-            
-            return result;
-        } 
-        else if (_doc.getElementsByClassName) {
-            result = arrayIt(_doc.getElementsByClassName(selector));
-
-            if (tag != "*") {
-                result = filter(result, tag);
-            }
-            
-            _cache[ cacheKey ] = result.slice(0);
-            
-            return result;
-        }
-
-        var es = (tag == "*" && root.all) ? root.all : root.getElementsByTagName(tag);
-
-        if (includeRoot) {
-            es[ es.length ] = root ;
-        }
-
-        for (var index = 0, e; e = es[ index++ ];) {
-            if (selectorRE.test(e.className)) {
-                result[ result.length ] = e;
-            }
-        }
-        return result;
-    }
-
-    function getById(selector, root, includeRoot, cacheKey, tag, flat) {
-    
-        var rs,
-            result = [];
-
-        if (flat) {
-            return getAttribute(root, "id") === selector ? [root] : [];
-        }
-
-        if (root.getElementById) {
-            rs = root.getElementById(selector);
-        } 
-        else {
-            rs = _doc.getElementById(selector);
-        }
-
-        if (rs && getAttribute(rs, "id") === selector) {
-            result[ result.length ] = rs;
-            _cache[ cacheKey ] = result.slice(0);
-            return result;
-        }
-
-        var es = root.getElementsByTagName(tag);
-
-        if (includeRoot) {
-            es[ es.length ] = root;
-        }
-
-        for (var index = 0, e; e = es[ index++ ];) {
-            if (getAttribute(e, "id") === selector) {
-                result[ result.length ] = e;
-                break;
-            }
-        }
-        return result;
-    }
-
-    function getContextFromSequenceSelector(selector, roots, includeRoot, flat) {
-        var context,
-            tag,
-            contextType = "",
-            result = [],
-            tResult = [],
-            root,
-            rootCount,
-            rootsLength;
-
-        _reg.id.lastIndex = _reg.typeSelector.lastIndex = _reg.classRE.lastIndex = 0;
-        
-        if (!_reg.tag.test(selector)) {
-            selector = "*" + selector;
-        }
-        
-        context = _reg.typeSelector.exec(selector)[1];
-        roots = roots instanceof Array ? roots.slice(0) : [roots];
-        rootsLength = roots.length;
-        rootCount = rootsLength - 1;
-
-        if (_reg.id.test(context)) {
-            contextType = "id";
-            tag = (tag = context.match(/^\w+/)) ? tag[0] : "*";
-            context = context.replace(_reg.id, "");
-        } 
-        else if (_reg.classRE.test(context)) {
-            contextType = "class";
-            tag = (tag = context.match(_reg.tag)) ? tag[0] : "*";
-            context = context.replace(_reg.tag, "");
-            contextRE = _persistCache[context + "RegExp"] ||
-                        (_persistCache[context + "RegExp"] = new RegExp("(?:^|\\s)" + context.replace(/\./g, "\\s*") + "(?:\\s|$)"));
-            context = context.replace(/\./g, " ")
-        }
-
-        while (rootCount > -1) {
-            root = roots[ rootCount-- ];
-            root.uid = root.uid || _uid++;
-            var cacheKey = selector + root.uid;
-
-            if (_cacheOn && _cache[ cacheKey ]) {
-                result = result.concat(_cache[ cacheKey ]);
-                continue;
-            }
-
-            if (contextType === "id") {
-                tResult = getById(context, root, includeRoot, cacheKey, tag, flat);
-            } 
-            else if (contextType === "class") {
-                tResult = getByClass(context, contextRE, root, includeRoot, cacheKey, tag, flat);
-            } 
-            else { /* tagname */
-                tResult = arrayIt(root.getElementsByTagName(context));
-                if (includeRoot && (root.nodeName.toUpperCase() === context.toUpperCase() || context === "*")) {
-                    tResult[tResult.length] = root;
-                }
-            }
-
-            result = rootsLength > 1 ? result.concat(tResult) : tResult;
-            _cache[ cacheKey ] = result.slice(0);
-        }
-        return result;
-    }
-
-    peppy = {
-    
-        query : function(selectorGroups, root, includeRoot, recursed, flat) {
-        
-            var elements = [];
-            if (!recursed) {  // TODO: try to clean this up.
-                selectorGroups = selectorGroups.replace(_reg.trim, "") // get rid of leading and trailing spaces
-                   .replace(/(\[)\s+/g, "$1") // remove spaces around '['  of attributes
-                   .replace(/\s+(\])/g, "$1") // remove spaces around ']' of attributes
-                   .replace(/(\[[^\] ]+)\s+/g, "$1") // remove spaces to the left of operator inside of attributes
-                   .replace(/\s+([^ \[]+\])/g, "$1") // remove spaces to the right of operator inside of attributes
-                   .replace(/(\()\s+/g, "$1") // remove spaces around '(' of pseudos
-                   .replace(/(\+)([^0-9])/g, "$1 $2") // add space after + combinator
-                   .replace(/['"]/g, "") // remove all quotations
-                   .replace(/\(\s*even\s*\)/gi, "(2n)") // replace (even) with (2n) - pseudo arg (for caching)
-                   .replace(/\(\s*odd\s*\)/gi, "(2n+1)"); // replace (odd) with (2n+1) - pseudo arg (for caching)
-            }
-
-            if (typeof root === "string") {
-                root = (root = getContextFromSequenceSelector(root, _doc)).length > 0 ? root : undefined;
-            }
-
-            root = root || _doc;
-            root.uid = root.uid || _uid++;
-
-            var cacheKey = selectorGroups + root.uid;
-            if (_cacheOn && _cache[cacheKey]) {
-                return _cache[cacheKey];
-            }
-
-            _reg.quickTest.lastIndex = 0;
-            if (_reg.quickTest.test(selectorGroups)) {
-                elements = getContextFromSequenceSelector(selectorGroups, root, includeRoot, flat);
-                return (_cache[ cacheKey ] = elements.slice(0));
-            }
-
-            var groupsWorker,
-                groups,
-                selector,
-                parts = [],
-                part;
-
-            groupsWorker = selectorGroups.split(/\s*,\s*/g);
-            groups = groupsWorker.length > 1 ? [""] : groupsWorker;
-
-            // validate groups
-            for (var gwi = 0, tc = 0, gi = 0, g; groupsWorker.length > 1 && (g = groupsWorker[ gwi++ ]) !== undefined;) {
-                tc += (((l = g.match(/\(/g)) ? l.length : 0) - ((r = g.match(/\)/g)) ? r.length : 0));
-                groups[gi] = groups[gi] || "";
-                groups[gi] += (groups[gi] === "" ? g : "," + g);
-                
-                if (tc === 0) {
-                    gi++;
-                }
-            }
-
-            var gCount = 0;
-            while ((selector = groups[gCount++]) !== undefined) {
-                
-                _reg.quickTest.lastIndex = 0;
-                if (_reg.quickTest.test(selector)) {
-                    result = getContextFromSequenceSelector(selector, root, includeRoot, flat)
-                    elements = groups.length > 1 ? elements.concat(result) : result;
-                    continue;
-                }
-                
-                _reg.combinatorTest.lastIndex = 0;
-                if (_reg.combinatorTest.test(selector)) {
-                    var parts,
-                        pLength,
-                        pCount = 0,
-                        combinators,
-                        cLength,
-                        cCount = 0,
-                        result;
-
-                    parts = selector.split(_reg.combinator);
-                    pLength = parts.length;
-
-                    combinators = selector.match(_reg.combinator) || [""];
-                    cLength = combinators.length;
-
-                    while (pCount < pLength) {
-                        
-                        var c,
-                            part1,
-                            part2;
-
-                        c = combinators[ cCount++ ].replace(_reg.trim, "");
-
-                        part1 = result || peppy.query(parts[pCount++], root, includeRoot, true, flat);
-                        part2 = peppy.query(parts[ pCount++ ],
-                                            c == "" || c == ">" ? part1 : root,
-                                            c == "" || c == ">",
-                                            true,
-                                            flat);
-
-                        result = peppy.queryCombinator(part1, part2, c);
-                    }
-
-                    elements = groups.length > 1 ? elements.concat(result) : result;
-                    result = undefined;
-                } 
-                else {
-                    result = peppy.querySelector(selector, root, includeRoot, flat);
-                    elements = groups.length > 1 ? elements.concat(result) : result;
-                }
-            }
-
-            if (groups.length > 1) {
-                elements = filter(elements);
-            }
-
-            return (_cache[ cacheKey ] = elements.slice(0));
-        },
-        
-        queryCombinator: function(l, r, c) {
-        
-            var result = [],
-                uids = {},
-                proc = {},
-                succ = {},
-                fail = {},
-                combinatorCheck = peppy.simpleSelector.combinator[c];
-
-            for (var li = 0, le; le = l[ li++ ];) {
-                le.uid = le.uid || _uid++
-                uids[ le.uid ] = le;
-            }
-
-            for (var ri = 0, re; re = r[ ri++ ];) {
-                re.uid = re.uid || _uid++;
-                if (!proc[ re.uid ] && combinatorCheck(re, uids, fail, succ)) {
-                    result[ result.length ] = re;
-                }
-                proc[ re.uid ] = re;
-            }
-            return result;
-        },
-        
-        querySelector : function(selector, root, includeRoot, flat) {
-        
-            var context,
-                passed = [],
-                count,
-                totalCount,
-                e,
-                first = true,
-                localCache = {};
-
-            context = getContextFromSequenceSelector(selector, root, includeRoot, flat);
-            count = context.length;
-            totalCount = count - 1;
-
-            var tests, recursive;
-            if (/:(not|has)/i.test(selector)) {
-                recursive = selector.match(_reg.recursive);
-                selector = selector.replace(_reg.recursive, "");
-            }
-
-            // Get the tests (if there aren't any just set tests to an empty array).
-            if (!(tests = selector.match(/:(\w|-)+(\([^\(]+\))*|\[[^\[]+\]/g))) {
-                tests = [];
-            }
-
-            // If there were any recursive tests put them in the tests array (they were removed above).
-            if (recursive) {
-                tests = tests.concat(recursive);
-            }
-
-            // Process each tests for all elements.
-            var aTest;
-            while ((aTest = tests.pop()) !== undefined) {
-            
-                var pc = _persistCache[ aTest ],
-                    testFuncScope,
-                     testFunc,
-                     testFuncKey,
-                     testFuncArgs = [],
-                    isTypeTest = false,
-                    isCountTest = false;
-
-                passed = [];
-
-                if (pc) {
-                    testFuncKey = pc[ 0 ];
-                    testFuncScope = pc[ 1 ];
-                    testFuncArgs = pc.slice(2);
-                    testFunc = testFuncScope[ testFuncKey ];
-                } 
-                else if (!/^:/.test(aTest)) { // attribute
-                    var n = aTest.match(_reg.attributeName);
-                    var v = aTest.match(_reg.attributeValue);
-
-                    testFuncArgs[ 1 ] = n[ 1 ] || n[ 0 ];
-                    testFuncArgs[ 2 ] = v ? v[ 1 ] : "";
-                    testFuncKey = "" + aTest.match(/[~!+*\^$|=]/);
-                    testFuncScope = peppy.simpleSelector.attribute;
-                    testFunc = testFuncScope[ testFuncKey ];
-                    _persistCache[ aTest ] = [ testFuncKey, testFuncScope ].concat(testFuncArgs);
-                } 
-                else { // pseudo
-                    var pa = aTest.match(_reg.pseudoArgs);
-                    testFuncArgs[ 1 ] = pa ? pa[ 1 ] : "";
-                    testFuncKey = aTest.match(_reg.pseudoName)[ 1 ];
-                    testFuncScope = peppy.simpleSelector.pseudos;
-
-                    if (/nth-(?!.+only)/i.test(aTest)) {
-                        var a,
-                            b,
-                            nArg = testFuncArgs[ 1 ],
-                            nArgPC = _persistCache[ nArg ];
-
-                        if (nArgPC) {
-                            a = nArgPC[ 0 ];
-                            b = nArgPC[ 1 ];
-                        } 
-                        else {
-                            var nParts = nArg.match(_reg.nthParts);
-                            if (nParts) {
-                                a = parseInt(nParts[1],10) || 0;
-                                b = parseInt(nParts[3],10) || 0;
-
-                                if (/^\+n|^n/i.test(nArg)) {
-                                    a = 1;
-                                } else if (/^-n/i.test(nArg)) {
-                                    a = -1;
-                                }
-
-                                testFuncArgs[ 2 ] = a;
-                                testFuncArgs[ 3 ] = b;
-                                _persistCache[ nArg ] = [a, b];
-                            }
-                        }
-                    } 
-                    else if (/^:contains/.test(aTest)) {
-                        var cArg = testFuncArgs[1];
-                        var cArgPC = _persistCache[ cArg ];
-
-                        if (cArgPC) {
-                            testFuncArgs[1] = cArgPC;
-                        } else {
-                            testFuncArgs[1] = _persistCache[ cArg ] = new RegExp(cArg);
-                        }
-                    }
-                    testFunc = testFuncScope[ testFuncKey ];
-                    _persistCache[ aTest ] = [ testFuncKey, testFuncScope ].concat(testFuncArgs);
-                }
-
-                isTypeTest = /:(\w|-)+type/i.test(aTest);
-                isCountTest = /^:(nth[^-]|eq|gt|lt|first|last)/i.test(aTest);
-                
-                if (isCountTest) {
-                    testFuncArgs[ 3 ] = totalCount;
-                }
-
-                // Now run the test on each element (keep only those that pass)
-                var cLength = context.length, cCount = cLength -1 ;
-                while (cCount > -1) {
-                    e = context[ cCount-- ];
-                    
-                    if (first) {
-                        e.peppyCount = cCount + 1;
-                    }
-                    
-                    var pass = true;
-                    testFuncArgs[ 0 ] = e;
-                    
-                    if (isCountTest) {
-                        testFuncArgs[2] = e.peppyCount;
-                    }
-
-                    if (!testFunc.apply(testFuncScope, testFuncArgs)) {
-                        pass = false;
-                    }
-                    
-                    if (pass) {
-                        passed.push(e);
-                    }
-                }
-                context = passed;
-                first = false;
-            }
-            return passed;
-        },
-        
-        simpleSelector: {
-        
-            attribute: {
-                "null": function(e, a, v) { return !!getAttribute(e,a); },
-                "=" : function(e, a, v) { return getAttribute(e,a) == v; },
-                "~" : function(e, a, v) { return getAttribute(e,a).match(new RegExp('\\b'+v+'\\b')) },
-                "^" : function(e, a, v) { return getAttribute(e,a).indexOf(v) === 0; },
-                "$" : function(e, a, v) { var attr = getAttribute(e,a); return attr.lastIndexOf(v) === attr.length - v.length; },
-                "*" : function(e, a, v) { return getAttribute(e,a).indexOf(v) != -1; },
-                "|" : function(e, a, v) { return getAttribute(e,a).match('^'+v+'-?(('+v+'-)*('+v+'$))*'); },
-                "!" : function(e, a, v) { return getAttribute(e,a) !== v; }
-            },
-            
-            pseudos: {
-            
-                ":root" : function(e) { return e === _doc.getElementsByTagName("html")[0] ? true : false; },
-                
-                ":nth-child" : function(e, n, a, b, t) {
-                    if (!e.nodeIndex) {
-                        var node = e.parentNode.firstChild, count = 0, last;
-                        for (; node; node = node.nextSibling) {
-                            if (node.nodeType == 1) {
-                                last = node;
-                                node.nodeIndex = ++count;
-                            }
-                        }
-                        last.IsLastNode = true;
-                        if (count == 1) last.IsOnlyChild = true;
-                    }
-                    var position = e.nodeIndex;
-                    if (n == "first")
-                        return position == 1;
-                    if (n == "last")
-                        return !!e.IsLastNode;
-                    if (n == "only")
-                        return !!e.IsOnlyChild;
-                    return (!a && !b && position == n) ||
-                           ((a == 0 ? position == b :
-                                       a > 0 ? position >= b && (position - b) % a == 0 :
-                                                 position <= b && (position + b) % a == 0));
-                },
-                
-                ":nth-last-child" : function(e, n, t, a, b) { return this[ ":nth-child" ](e, n, a, b); },  // TODO: n is not right.
-                
-                ":nth-of-type" : function(e, n, t, a, b) { return this[ ":nth-child" ](e, n, a, b, t); },
-                
-                ":nth-last-of-type" : function(e, n, t, a, b) { return this[ ":nth-child" ](e, n, a, b, t); }, // TODO: n is not right.
-                
-                ":first-child" : function(e) { return this[ ":nth-child" ](e, "first"); },
-                
-                ":last-child" : function(e) { return this[ ":nth-child" ](e, "last"); },
-                
-                ":first-of-type" : function(e, n, t) { return this[ ":nth-child" ](e, "first", null, null, t); },
-                
-                ":last-of-type" : function(e, n, t) { return this[ ":nth-child" ](e, "last", null, null, t); },
-                
-                ":only-child" : function(e) { return this[ ":nth-child" ](e, "only"); },
-                
-                ":only-of-type" : function(e, n, t) { return this[ ":nth-child" ](e, "only", null, null, t); },
-                
-                ":empty" : function(e) {
-                    for (var node = e.firstChild, count = 0; node !== null; node = node.nextSibling) {
-                        if (node.nodeType === 1 || node.nodeType === 3) return false;
-                    }
-                    return true;
-                },
-                
-                ":not" : function(e, s) { return peppy.query(s, e, true, true, true).length === 0; },
-                
-                ":has" : function(e, s) { return peppy.query(s, e, true, true, true).length > 0; },
-                
-                ":selected" : function(e) { return e.selected; },
-                
-                ":hidden" : function(e) { return e.type === "hidden" || e.style.display === "none"; },
-                
-                ":visible" : function(e) { return e.type !== "hidden" && e.style.display !== "none"; },
-                
-                ":input" : function(e) { return e.nodeName.search(/input|select|textarea|button/i) !== -1; },
-                
-                ":radio" : function(e) { return e.type === "radio"; },
-                
-                ":checkbox" : function(e) { return e.type === "checkbox"; },
-                
-                ":text" : function(e) { return e.type === "text"; },
-                
-                ":header" : function(e) { return e.nodeName.search(/h\d/i) !== -1; },
-                
-                ":enabled" : function(e) { return !e.disabled && e.type !== "hidden"; },
-                
-                ":disabled" : function(e) { return e.disabled; },
-                
-                ":checked" : function(e) { return e.checked; },
-                
-                ":contains" : function(e, s) { return s.test((e.textContent || e.innerText || "")); },
-                
-                ":parent" : function(e) { return !!e.firstChild; },
-                
-                ":odd" : function(e) { return this[ ":nth-child" ](e, "2n+2", 2, 2); },
-                
-                ":even" : function(e) { return this[ ":nth-child" ](e, "2n+1", 2, 1); },
-                
-                ":nth" : function(e, s, i) { return s == i; },
-                
-                ":eq" : function(e, s, i) { return s == i; },
-                
-                ":gt" : function(e, s, i) { return i > s; },
-                
-                ":lt" : function(e, s, i) { return i < s; },
-                
-                ":first" : function(e, s, i) { return i == 0 },
-                
-                ":last" : function(e, s, i, end) { return i == end; }
-            },
-            
-            combinator : {
-            
-                "" : function(r, u, f, s) {
-                    var rUID = r.uid;
-                    while ((r = r.parentNode) !== null && !f[ r.uid ]) {
-                        if (!!u[ r.uid ] || !!s[ r.uid ]) {
-                            return (s[ rUID ] = true);
-                        }
-                    }
-                    return (f[ rUID ] = false);
-                },
-                
-                ">" : function(r, u, f, s) {
-                    return r.parentNode && u[ r.parentNode.uid ] ;
-                },
-                
-                "+" : function(r, u, f, s) {
-                    while ((r = r.previousSibling) !== null && !f[ r.uid ]) {
-                        if (r.nodeType === 1)
-                            return r.uid in u;
-                    }
-                    return false;
-                },
-                
-                "~" : function(r, u, f, s) {
-                    var rUID = r.uid;
-                    while ((r = r.previousSibling) !== null && !f[ r.uid ]) {
-                        if (!!u[ r.uid ] || !!s[ r.uid ]) {
-                            return (s[ rUID ] = true);
-                        }
-                    }
-                    return (f[ rUID ] = false);
-                }
-            }
-        }
-    }
-
-    // From John Resig -> http://ejohn.org/blog/thoughts-on-queryselectorall/
-    // Copyright 2008, John Resig (http://ejohn.org/)
-    // released under the MIT License
-    if (_doc.querySelectorAll) {
-        (function(){
-            var oldpeppy = peppy.query;
-
-            peppy.query = function(sel, context){
-                context = context || _doc;
-                if (context === _doc) {
-                    try {
-                        return context.querySelectorAll(sel);
-                    } catch(e){}
-                }
-
-                return oldpeppy.apply(oldpeppy, arrayIt(arguments));
-            };
-        })();
-    } 
-    else {
-        // If the DOM changes we need to clear the cache because it will no longer be reliable.
-        // Inspired by code from Sizzle -> http://github.com/jeresig/sizzle/tree/master.
-        // Copyright 2008, John Resig (http://ejohn.org/)
-        // released under the MIT License
-        var aEvent = _doc.addEventListener || _doc.attachEvent;
-        function clearCache(){ _cache = {}; }
-        aEvent("DOMAttrModified", clearCache, false);
-        aEvent("DOMNodeInserted", clearCache, false);
-        aEvent("DOMNodeRemoved", clearCache, false);
-    }
-
-    if (!($ = window.$)) {
-        $ = peppy.query;
-    }
-})();
+// Source: dist/peppy.js
+/**
+ *	Peppy - A lightning fast CSS 3 Compliant selector engine.
+ *	http://www.w3.org/TR/css3-selectors/#selectors
+ *
+ *	version 2.0.0-beta
+ *
+ *	Author: James Donaghue - james.donaghue@gmail.com
+ *
+ *	Copyright (c) 2008 James Donaghue (jamesdonaghue.com)
+ *	Licenced under the FreeBSD (http://www.freebsd.org/copyright/freebsd-license.html) licence.
+ *
+ *	Pattern					Meaning	
+ *	E						an element of type E	
+ *	E[foo]					an E element with a "foo" attribute	
+ *	E[foo="bar"]			an E element whose "foo" attribute value is exactly equal to "bar"	
+ *	E[foo~="bar"]			an E element whose "foo" attribute value is a list of whitespace-separated values, one of which is exactly equal to "bar"	
+ *	E[foo^="bar"]			an E element whose "foo" attribute value begins exactly with the string "bar"
+ *	E[foo$="bar"]			an E element whose "foo" attribute value ends exactly with the string "bar"	
+ *	E[foo*="bar"]			an E element whose "foo" attribute value contains the substring "bar"	
+ *	E[foo|="en"]			an E element whose "foo" attribute has a hyphen-separated list of values beginning (from the left) with "en"
+ *	E:nth-child(n)			an E element, the n-th child of its parent	
+ *	E:first-child			an E element, first child of its parent	
+ *	E:last-child			an E element, last child of its parent	
+ *	E:first-of-type			an E element, first sibling of its type	
+ *	E:last-of-type			an E element, last sibling of its type	
+ *	E:only-child			an E element, only child of its parent	
+ *	E:only-of-type			an E element, only sibling of its type	
+ *	E:empty					an E element that has no children (including text nodes)		
+ *	E:enabled
+ *	E:disabled				a user interface element E which is enabled or disabled	
+ *	E:checked				a user interface element E which is checked (for instance a radio-button or checkbox)	
+ *	E::first-line			the first formatted line of an E element	
+ *	E::first-letter			the first formatted letter of an E element	
+ *	E::before				generated content before an E element	
+ *	E::after				generated content after an E element	
+ *	E.warning				an E element whose class is "warning" (the document language specifies how class is determined).	
+ * 	E#myid					an E element with ID equal to "myid".	
+ *	E:not(s)				an E element that does not match simple selector s	
+ *	E F						an F element descendant of an E element	
+ *	E > F					an F element child of an E element	
+ *	E + F					an F element immediately preceded by an E element	
+ *	E ~ F					an F element preceded by an E element	
+ */
+(function(global, doc) {
+
+	
+// Source: LLSelectorParser/LLparser.content.js
+
+
+	var _LL = {
+		UNIV: 0,
+		TYPE: 1,
+		ID: 2,
+		CLS: 3,
+		ATTR: 4,
+		COMB: 5,
+		PSEL: 6,
+		PSCLS: 7,
+		NOT: 8,
+		HAS: 9,
+		NTH: 10
+	};
+
+	var	_COMBINATORS = {
+			'+': 0,
+			'>': 1,
+			'~': 2,
+			' ': 3
+		};
+
+	function error(message, ch) {
+		if (console && console.log) {
+			console.error('error: ' + message + ' char: ' + ch);
+		}
+	}
+
+	function nextNonSpace(selector, start) {
+		for (var i = start; i < selector.length; i++) {
+			if (selector[i] != ' ' && selector[i] != '\n' && selector[i] != '\r' && selector[i] != '\t') {
+				return i-1;
+			}
+		}
+		return selector.length - 1;
+	}
+
+	function parseAttribute(start, selector, obj) {
+		obj.left = '';
+		obj.right = '';
+		obj.op = '';
+
+		var insideQuotes = false;
+
+		for (var i = start; i < selector.length; i++) {
+			var c = selector[i];
+
+			if (!insideQuotes && c == ']') {
+				return i;
+			}
+
+			if (c == '\'' || c == '"') {
+
+				insideQuotes = !insideQuotes;
+			}
+			else {
+
+				if (insideQuotes) {
+					obj.right += c;
+				}
+				else if (obj.op.indexOf('=') == -1) {
+					if (c in {'+':0, '~': 1, '=': 2, '$': 3, '|': 4, '^': 5, '*': 6}) {
+						obj.op += c;
+					}
+					else if (c != ' ' && c!= '\n' && c != '\r' && c != '\t' && c != '\\') {
+						obj.left += c;
+					}
+				}
+				else if (c != ' ' && c!= '\n' && c != '\r' && c != '\t' && c != '\'' && c != '"') {
+					obj.right += c;
+				}
+			}
+		}
+		error('invalid attribute', start);
+		return selector.length - 1;
+	}
+
+	function parseRecursivePseudo(start, selector, obj, preventRecursiveLex) {
+		obj.value = '';
+
+		var paranthCount = 1;	
+
+		for (var i = start; i < selector.length; i++) {
+			var c = selector[i];
+
+			if (c == '(') {
+				paranthCount++;
+			}
+			
+			if (c == ')') {
+				if (--paranthCount == 0) {
+					if (!preventRecursiveLex) {
+						obj.value = _LL.lex(obj.value);
+					}
+					return i;
+				}
+			}
+
+			obj.value += c;
+		}
+		error('invalid attribute', start);
+		return selector.length - 1;
+	}
+
+	function parseNth(start, selector, obj) {
+		obj.value = '';
+
+		for (var i = start; i < selector.length; i++) {
+			var c = selector[i];
+			
+			if (c == ')') {
+				return i;
+			}
+
+			obj.value += c;
+		}
+		error('invalid attribute', start);
+		return selector.length - 1;
+	}
+
+	_LL.lex = function lexer(selector) {
+		var groups = [],
+			selectorStack = [];
+
+		// first trim the selector
+		selector = selector.replace(/(^\s+|\s+$)/g, '');
+
+		for (var i = 0, len = selector.length; i < len; i++) {
+			var character = selector[i],
+				characterAhead = selector[i + 1],
+				lastInStack = selectorStack[selectorStack.length-1];
+
+
+			if (character == ',') {
+				// GROUP
+				groups.push(selectorStack.slice(0));
+				selectorStack = [];
+				i = nextNonSpace(selector, i+1);
+			}
+			else if (character in _COMBINATORS 
+				&& characterAhead != '='
+				&& selector[nextNonSpace(selector, i+1) + 1] != ','
+				&& (lastInStack.type != _LL.PSCLS 
+					|| lastInStack.value.indexOf('nth-child') == -1 
+					|| lastInStack.value[lastInStack.value.length-1] == ')')) {
+
+				// COMBINATOR
+				if (!lastInStack || lastInStack.type != _LL.COMB) {
+					i = nextNonSpace(selector, i+1);
+
+					if (selector[i+1] in _COMBINATORS) {
+						character = selector[i+1];
+						i = nextNonSpace(selector, i+2);
+					}
+					selectorStack.push({
+						type: _LL.COMB,
+						value: character
+					});					
+				}
+			}
+			else {
+				// SELECTOR
+				var type;
+				if ((selectorStack.length == 0 
+					|| lastInStack.type == _LL.COMB
+					|| lastInStack.type == _LL.ATTR
+					|| character in { '[':0, '.':1, '#':2, '*':3, '\\':4 }
+					|| (character == ':'
+						&& selector[i-1] != ':'))
+					&& character != '\\') {
+
+					switch(character) {
+						case '*' : {
+							type = _LL.UNIV;
+							break;
+						}
+						case '.' : {
+							type = _LL.CLS;
+							break;
+						}
+						case '#': {
+							type = _LL.ID;
+							break;
+						}
+						case ':': {
+							if (selector[i+1] == ':') {
+								type = _LL.PSEL;
+							}
+							else {
+								if (selector.substr(i + 1, 3) == 'not') {
+									character = {
+										value: '',
+										op: 'NOT'
+									}
+									i = parseRecursivePseudo(i+5, selector, character)
+									character = character.value;
+									type = _LL.NOT;
+								}
+								else if (selector.substr(i + 1, 8) == 'contains') {
+									character = {
+										value: '',
+										op: 'CONTAINS'
+									}
+									i = parseRecursivePseudo(i+10, selector, character, true);
+									character = {
+										value: ':contains',
+										content: character.value.replace(/['"]/g, '')
+									}
+									type = _LL.PSCLS;
+								}
+								else if (selector.substr(i + 1, 3) == 'has') {
+									character = {
+										value: '',
+										op: 'HAS'
+									}
+									i = parseRecursivePseudo(i+5, selector, character);
+									character = character.value;
+									type = _LL.HAS;
+								}
+								else if (selector.substr(i + 1, 4) == 'lang') {
+									character = {
+										value: '',
+										op: 'LANG'
+									}
+									i = parseRecursivePseudo(i+6, selector, character, true);
+									character = {
+										value: ':lang',
+										content: character.value.replace(/['"]/g, '')
+									}
+									type = _LL.PSCLS;
+								}
+								else if (selector.substr(i +1, 3) == 'nth') {
+									var nth = selector.substr(i, selector.substr(i).indexOf('('));
+									character = {
+										value: '',
+										op: 'NTH'
+									};
+									i = parseNth(i + nth.length + 1, selector, character);
+									character = {
+										value: nth,
+										content: character.value
+									};
+									type = _LL.NTH;
+								}
+								else if (selector.substr(i +1, 2) == 'eq') {
+									var eq = selector.substr(i, selector.substr(i).indexOf('('));
+									character = {
+										value: '',
+										op: 'EQ'
+									};
+									i = parseNth(i + eq.length + 1, selector, character);
+									character = {
+										value: eq,
+										content: character.value
+									};
+									type = _LL.PSCLS;
+								}
+								else if (selector.substr(i +1, 2) == 'lt') {
+									var lt = selector.substr(i, selector.substr(i).indexOf('('));
+									character = {
+										value: '',
+										op: 'LT'
+									};
+									i = parseNth(i + lt.length + 1, selector, character);
+									character = {
+										value: lt,
+										content: (character.value || 0) * 1 - 1
+									};
+									type = _LL.PSCLS;
+								}
+								else if (selector.substr(i +1, 2) == 'gt') {
+									var gt = selector.substr(i, selector.substr(i).indexOf('('));
+									character = {
+										value: '',
+										op: 'GT'
+									};
+									i = parseNth(i + gt.length + 1, selector, character);
+									character = {
+										value: gt,
+										content: (character.value || 0) * 1 + 1
+									};
+									type = _LL.PSCLS;
+								}
+								else {
+									type = _LL.PSCLS;
+								}
+							}
+
+							if (selector[i+2] == ':') {
+								error('invalid pseudo class', i+2);
+							}
+							break;
+						}
+						case '[': {
+							type = _LL.ATTR;
+							character = {
+								left: '',
+								right: '', 
+								op: ''
+							}
+							i = parseAttribute(i+1, selector, character);
+							
+							break;
+						}
+						default: {
+							type = _LL.TYPE;
+							break;
+						}
+					}
+					if (character.content != undefined) {
+						selectorStack.push({
+							type: type,
+							value: character.value != undefined ? character.value : character,
+							content: character.content
+						});
+					}
+					else {
+						selectorStack.push({
+							type: type,
+							value: character
+						});
+					}
+				}
+				else {
+					if (character == '\\') {
+						i++;
+						character = character + selector[i];
+					}
+					
+					if (character != ' ' && character != '\n' && character != '\r' && character != '\t') {
+						lastInStack.value += character;
+					}
+				}
+			}
+		}
+
+		groups.push(selectorStack.slice(0));
+		return groups;
+	}
+
+// Source: src/peppy.content.js
+
+	/************************** HELPERS ****************************/
+
+	/**
+	 *
+	 */
+	function _sort(results) {
+
+		results.sort(function(a, b) {
+			if (a.compareDocumentPosition) {
+				var compare = a.compareDocumentPosition(b);
+				return compare & a.DOCUMENT_POSITION_FOLLOWING ? -1 : compare & a.DOCUMENT_POSITION_PRECEDING ? 1 : 0;
+			}
+			else {
+				var aParents = [a],
+					aP = a, 
+					bP = b;
+				while((aP = aP.parentNode) != null) {
+					aParents.push(aP);
+				}
+				var bCount = 0;
+				do {
+					for(var i=0,len=aParents.length; i<len;i++) {
+						if (aParents[i] == bP) {	
+							var position = bP == a ? 0 : bP == b ? 1 : _findFirstNode(bP, [a, b]);
+							if (position == 0) {
+								return -1;
+							}
+							else if (position == 1) {
+								return 1;
+							}
+							else {
+								return 0;
+							}
+						}
+					}
+					bCount++;
+				} while((bP = bP.parentNode) != null);
+			}
+		});
+		return results;
+	}
+
+	/**
+	 *
+	 */
+	function _findFirstNode(parent, nodes) {
+
+		for(var i=0, len=parent.childNodes.length; i<len; i++) {
+			var node = parent.childNodes[i];
+
+			for (var j=0, jLen=nodes.length; j<jLen; j++) {
+				if (nodes[j] == node) {
+					return j;
+				}
+			}
+			
+			var position = _findFirstNode(node, nodes);
+			if (position > -1) {
+				return position;
+			}
+		}
+		return -1;
+	}
+
+	/**
+	 *
+	 */
+	function _filterUnique(results) {
+
+		var unique = [];
+		for (var i=0, iLen=results.length; i<iLen; i++) {
+			var isUnique = true;
+
+			for (var j=0, jLen=unique.length; j<jLen; j++) {
+				if (unique[j] == results[i]) {
+					isUnique = false;
+				}
+			}
+
+			if (isUnique) {
+				unique.push(results[i]);
+			}
+		}
+		return unique;
+	}
+
+	/**
+	 *
+	 */
+	function _getAttribute(el, attr) {
+		return el.getAttribute(attr) || el.attributes[attr] ? el.attributes[attr].value : undefined;
+	}
+
+	/**
+	 *
+	 */
+	function _getAllDescendants(context) {
+
+		var results = [];
+		if (!context) {
+			context = doc;
+		}
+
+		(function(context) {
+			for (var i= 0, len= context.childNodes.length; i<len; i++) {
+				var child= context.childNodes[i];
+				
+				if (child.nodeType == 1) {
+					results.push(child);
+					arguments.callee(child);
+				}
+			}
+		}(context));
+		return results;
+	}
+
+	var _internalAPI = {
+
+		/**
+		 *
+		 */
+		byId: function(selectorData, results, context, opts) {
+
+			if (opts.useId || results.length != 0 || selectorData.value.indexOf('\\') > -1) {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+				var tmpId = [];
+				for (var index=0, len=results.length; index < len; index++) {
+					if (results[index].getAttribute('id') && results[index].getAttribute('id').toUpperCase() == selectorData.value.replace('#', '').replace(/\\/g, '').toUpperCase()) {
+						tmpId.push(results[index]);
+					}
+				}
+				results = tmpId;	
+			}
+			else {
+				var tmpId = doc.getElementById(selectorData.value.replace('#', ''));
+				if (tmpId) {
+					results.push(tmpId);
+				}
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byType: function(selectorData, results, context, opts) {
+
+			var types = selectorData.value.toUpperCase().split(','),
+				typesHash = {};
+
+			for(var t=0,tlen = types.length; t<tlen; t++) {
+				var type = types[t].replace(/^\s+|\s+$/g, '');
+				typesHash[type] = type;
+			}
+
+			if (opts.useType || results.length != 0 || types.length > 1) {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+				var tmpType = [];
+				for (var index = 0, len = results.length; index < len; index++) {
+					if (selectorData.type == _LL.UNIV || results[index].nodeName.toUpperCase() in typesHash) {
+						tmpType.push(results[index]);
+					}
+				}
+				results = tmpType;
+			}
+			else {
+				var ndList = context.getElementsByTagName(selectorData.value);
+				for (var index = 0, len = ndList.length; index < len; index++) {
+					results.push(ndList[index]);
+				}
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byClass: function(selectorData, results, context, opts) {
+
+			if (opts.useClass || results.length != 0 || !context.getElementsByTagName || selectorData.value.indexOf('\\') > -1) {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+
+				var tmpClass = [],
+					classString = selectorData.value.replace('.', ''),
+					classRE = new RegExp('(^|\\s)' + selectorData.value.replace('.', '') + '($|\\s)');
+
+				for (var index = 0, len = results.length; index < len; index++) {
+					if (classRE.test(results[index].className)) {
+						tmpClass.push(results[index]);
+					}
+				}
+				results = tmpClass;
+			}
+			else {
+				var ndList = context.getElementsByClassName(selectorData.value.replace('.', ''));
+				for(var index = 0, len = ndList.length; index < len; index++) {
+					results.push(ndList[index]);
+				}
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byDescendantComb: function(selectorData, results, context, opts) {
+
+			var tmpCombDesc = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				tmpCombDesc = tmpCombDesc.concat(_getAllDescendants(results[index]));
+			}
+			results = tmpCombDesc;
+			return results
+		},
+
+		/**
+		 *
+		 */
+		byImmediatelyPrecedingComb: function(selectorData, results, context, opts) {
+
+			var tmpCombNext = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var nextEl = results[index].nextSibling;
+				do {
+					if (!nextEl || nextEl.nodeType == 1) {
+						break;
+					}
+				}
+				while((nextEl = nextEl.nextSibling));
+				if (nextEl) {
+					tmpCombNext.push(nextEl);
+				}
+			}
+			results = tmpCombNext;
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byPrecedingComb: function(selectorData, results, context, opts) {
+
+			var tmpCombNextAll = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var nextEl = results[index].nextSibling;
+				do {
+					if (nextEl && nextEl.nodeType == 1) {
+						tmpCombNextAll.push(nextEl);
+					}
+				}
+				while((nextEl = nextEl.nextSibling));
+			}
+			results = tmpCombNextAll;
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byChildComb: function(selectorData, results, context, opts) {
+
+			var tmpCombChild = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var nextEl = results[index].childNodes[0];
+				while(nextEl) {
+					if (nextEl.nodeType == 1) {
+						tmpCombChild.push(nextEl);	
+					}
+					nextEl = nextEl.nextSibling;
+				}
+				
+			}
+			results = tmpCombChild;
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byAttributeName: function(selectorData, results, context, opts) {
+
+			if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpAttrExist = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (_getAttribute(el, selectorData.value.left) != undefined) {
+					tmpAttrExist.push(el);
+				}
+			}
+			results = tmpAttrExist;
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byAttributeEquals: function(selectorData, results, context, opts) {
+
+			if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpAttrEq = [],
+				attrRE = new RegExp('^' + selectorData.value.right.replace(/\\([0-9a-f]{2,2})/g, '\\x$1').replace(/(\[|\]|\{|\}|\-|\(|\)|\^|\$)/g, '\\$1') + '$');
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (attrRE.test(_getAttribute(el, selectorData.value.left))) {
+					tmpAttrEq.push(el);
+				}
+			}
+			results = tmpAttrEq;
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byAttributeInList: function(selectorData, results, context, opts) {
+
+			if (/^\s*$/.test(selectorData.value.right)) {
+				results = [];
+			}
+			else {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+				var tmpAttrListEq = [],
+					attrRE = new RegExp('^' + selectorData.value.right.replace(/\\([0-9a-f]{2,2})/g, '\\x$1').replace(/(\[|\]|\{|\}|\-|\(|\)|\^|\$)/g, '\\$1') + '$');
+				for (var index = 0, len = results.length; index < len; index++) {
+					var el = results[index],
+						attr = _getAttribute(el, selectorData.value.left);
+
+					if (attr) {
+						var attrList = attr.split(/\s+/);
+						
+						for(var attrListIndex = 0, attrListLen = attrList.length; attrListIndex < attrListLen; attrListIndex++) {
+							if (attrRE.test(attrList[attrListIndex])) {
+								tmpAttrListEq.push(el);
+								break;
+							}
+						}
+					}
+				}
+				results = tmpAttrListEq;
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byAttributeBegin: function(selectorData, results, context, opts) {
+
+			if (/^\s*$/.test(selectorData.value.right)) {
+				results = [];
+			}
+			else {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+				var tmpAttrBegins = [],
+					attrRE = new RegExp('^' + selectorData.value.right.replace(/\\([0-9a-f]{2,2})/g, '\\x$1').replace(/(\[|\]|\{|\}|\-|\(|\)|\^|\$)/g, '\\$1'));
+				for (var index = 0, len = results.length; index < len; index++) {
+					var el = results[index],
+						attr = _getAttribute(el, selectorData.value.left);
+
+					if (attrRE.test(attr)) {
+						tmpAttrBegins.push(el);
+					}
+				}
+				results = tmpAttrBegins;
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byAttributeEnds: function(selectorData, results, context, opts) {
+
+			if (/^\s*$/.test(selectorData.value.right)) {
+				results = [];				
+			}
+			else {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+				var tmpAttrEnds = [],
+					attrRE = new RegExp(selectorData.value.right.replace(/\\([0-9a-f]{2,2})/g, '\\x$1').replace(/(\[|\]|\{|\}|\-|\(|\)|\^|\$)/g, '\\$1') + '$');
+
+				for (var index = 0, len = results.length; index < len; index++) {
+					var el = results[index];
+
+					if (attrRE.test(_getAttribute(el, selectorData.value.left))) {
+						tmpAttrEnds.push(el);
+					}
+				}
+				results = tmpAttrEnds;
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byAttributeMiddle: function(selectorData, results, context, opts) {
+
+			if (/^\s*$/.test(selectorData.value.right)) {
+				results = [];				
+			}
+			else {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+				var tmpAttrContains = [],
+					attrRE = new RegExp('.*' + selectorData.value.right.replace(/\\([0-9a-f]{2,2})/g, '\\x$1').replace(/(\[|\]|\{|\}|\-|\(|\)|\^|\$)/g, '\\$1') + '.*');
+
+				for (var index = 0, len = results.length; index < len; index++) {
+					var el = results[index];
+
+					if (attrRE.test(_getAttribute(el, selectorData.value.left))) {
+						tmpAttrContains.push(el);
+					}
+				}
+				results = tmpAttrContains;
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		byAttributeHyphenList: function(selectorData, results, context, opts) {
+
+			if (/^\s*$/.test(selectorData.value.right)) {
+				results = [];
+			}
+			else {
+				if (results.length == 0) {
+					results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+				}
+				var tmpAttrHyphenListBegin = [];
+				for (var index = 0, len = results.length; index < len; index++) {
+					var el = results[index],
+						attr = _getAttribute(el, selectorData.value.left);
+
+					if (attr) {
+						var attrList = attr.split('-');
+						if (attrList.length > 0 && attrList[0] == selectorData.value.right) {
+							tmpAttrHyphenListBegin.push(el);
+						}
+					}
+				}
+				results = tmpAttrHyphenListBegin;
+			}
+			return results;
+		},
+
+		/**
+		 *
+		 */
+	 	byFirstChild: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					prev = el.previousSibling,
+					found = false;
+
+				while(prev) {
+					if (prev.nodeType == 1) {
+						found = true;
+						break;
+					}
+					prev = prev.previousSibling;
+				}
+				if (!found) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byLastChild: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					next = el.nextSibling,
+					found = false;
+
+				while(next) {
+					if (next.nodeType == 1) {
+						found = true;
+						break;
+					}
+					next = next.nextSibling;
+				}
+				if (!found) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;					
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byFirstOfType: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					prev = el.previousSibling,
+					nodeName = el.nodeName,
+					found = false;
+
+				while(prev) {
+					if (prev.nodeType == 1 && prev.nodeName == nodeName) {
+						found = true;
+						break;
+					}
+					prev = prev.previousSibling;
+				}
+				if (!found) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byLastOfType: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					next = el.nextSibling,
+					nodeName = el.nodeName,
+					found = false;
+
+				while(next) {
+					if (next.nodeType == 1 && next.nodeName == nodeName) {
+						found = true;
+						break;
+					}
+					next = next.nextSibling;
+				}
+				if (!found) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byOnlyChild: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					next = el.parentNode.childNodes[0],
+					count = 0;
+
+				while(next) {
+					if (next.nodeType == 1) {
+						count++;
+					}
+					next = next.nextSibling;
+				}
+				if (count == 1) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byOnlyOfType: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					next = el.parentNode.childNodes[0],
+					nodeName = el.nodeName,
+					count = 0;
+
+				while(next) {
+					if (next.nodeType == 1 && next.nodeName == nodeName) {
+						count++;
+					}
+					next = next.nextSibling;
+				}
+				if (count == 1) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byEmpty: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (el.childNodes.length == 0) {
+					tmpPS.push(el);
+				}
+				else {
+					var c = el.childNodes[0],
+						empty = true;
+					do {
+						if (c.nodeType == 1 || c.nodeType == 3 || c.nodeType == 4) {
+							empty = false;
+							break;
+						}
+					} while((c = c.nextSibling));
+
+					if (empty) {
+						tmpPS.push(el);
+					}
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byEnabled: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (!_getAttribute(el, 'disabled')) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byDisabled: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (_getAttribute(el, 'disabled')) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byChecked: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (_getAttribute(el, 'checked')) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byHidden: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (el.type == 'hidden' || el.style.display == 'none') {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byVisible: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if (el.type != 'hidden' && el.style.display != 'none' && el.style.visibility != 'hidden') {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	bySelected: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				/*!
+				 * Sizzle CSS Selector Engine v@VERSION
+				 * http://sizzlejs.com/
+				 *
+				 * Copyright 2013 jQuery Foundation, Inc. and other contributors
+				 * Released under the MIT license
+				 * http://jquery.org/license
+				 *
+				 * Date: @DATE
+				 */
+				// Accessing this property makes selected-by-default
+				// options in Safari work properly
+				if ( el.parentNode ) {
+					el.parentNode.selectedIndex;
+				}
+
+				if (el.selected === true) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byContains: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [],
+				value = selectorData.content;
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+				if ((el.textContent || el.innerText || '').indexOf( value ) > -1) {
+					tmpPS.push(el);
+				}
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byLang: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpPS = [],
+				value = selectorData.content;
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					origEl = el;
+				do {
+					if ((el.lang || _getAttribute(el, 'xml:lang') || _getAttribute(el, 'lang') || '').indexOf( value ) > -1) {
+						tmpPS.push(origEl);
+						break;
+					}
+				} while ((el = el.parentNode));
+			}
+			results = tmpPS;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+		byRoot: function(selectorData, results, context, opts) {
+
+			if (results.length == 0) {
+				results = [doc.documentElement];
+			}
+			else {
+				results = [];
+			}
+			return results;
+		},
+
+	 	/**
+		 *
+		 */
+	 	byNth: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+
+			if (selectorData.content.toLowerCase() == 'odd') {
+				selectorData.content = '2n+1';
+			}
+			else if (selectorData.content.toLowerCase() == 'even') {
+				selectorData.content = '2n';
+			}
+
+			var tmpNth = [],
+				nthParts = selectorData.content.split('n'),
+				a = nthParts[0] || 1,
+				b = nthParts[1] || 0;
+
+			if (a == '1' || a == '+1') {
+				a = 1;
+			}
+			else if (a == '-' || a == '-1') {
+				a = -1;
+			}
+
+			b = b * 1; // cast to number
+
+			var reverseDirection = selectorData.value.indexOf('last') > 0,
+				ofType = selectorData.value.indexOf('type') > 0;
+
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index],
+					next =  reverseDirection ? el.parentNode.childNodes[el.parentNode.childNodes.length-1] : el.parentNode.childNodes[0],
+					nodeName = el.nodeName,
+					count = 1,
+					elPosition = 1;
+
+				while(next) {
+					if (next.nodeType == 1 && (!ofType || next.nodeName == el.nodeName)) {
+						if (next == el) {
+							elPosition = count;
+						}
+						count++;
+					}
+					next = reverseDirection ? next.previousSibling : next.nextSibling;
+				}
+
+				if (!isNaN(selectorData.content)) {
+					if (elPosition == selectorData.content) {
+						tmpNth.push(el);
+					}
+				}
+				else {								
+					for (var i=0; i<count; i++) {
+						var num = a * i + b;
+						if (elPosition == num) {
+							tmpNth.push(el);
+							break;
+						}
+					}
+				}
+			}
+			results = tmpNth;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byNot: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			// if strict mode make sure only simple selector
+			if (peppy.useStrict && 
+					(selectorData.value.length > 1 
+						|| selectorData.value[0].length > 1 
+						|| !(selectorData.value[0][0].type in {0:0, 1:0, 2:0, 3:0, 4:0, 7:0}))) {
+				
+				results = [];
+				return results;
+			}
+			var tmpNot = [],
+				origTestContext = opts.testContext;
+
+				opts.testContext = true;
+
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+
+				if (peppy.query(selectorData.value, el, opts).length == 0) {
+					tmpNot.push(el);
+				}
+			}
+			opts.testContext = origTestContext;
+			results = tmpNot;
+			return results;
+	 	},
+
+	 	/**
+		 *
+		 */
+	 	byHas: function(selectorData, results, context, opts) {
+
+	 		if (results.length == 0) {
+				results = context.all || context.getElementsByTagName('*') || _getAllDescendants(context);
+			}
+			var tmpCont = [];
+			for (var index = 0, len = results.length; index < len; index++) {
+				var el = results[index];
+
+				if (peppy.query(selectorData.value, el, opts).length > 0) {
+					tmpCont.push(el);
+				}
+			}
+			results = tmpCont;
+			return results;
+	 	}
+	};
+
+	/************************** PUBLIC API *************************/
+
+	global.peppy = {
+
+		api: _internalAPI,
+
+		/**
+		 *
+		 */
+		query: function(selector, context, opts) {
+
+			var isAST = Object.prototype.toString.call(selector) == '[object Array]',
+				results = [];
+
+			if (!isAST && doc.querySelectorAll) {
+				var nl,
+					skipQSA = false;
+
+				try { nl = doc.querySelectorAll(selector); } catch(e) { skipQSA = true; }
+
+				if (!skipQSA) {
+					results = Array.prototype.slice.call(nl);
+					
+					if (results instanceof NodeList) {
+						results = [];
+						for(var i=0,len=nl.length; i<len; i++) {
+							results.push(nl[i]);
+						}
+					}
+
+					return results;
+				}
+			}
+
+			var tree = isAST ? selector : _LL.lex(selector);
+
+			for(var groupIndex=0, groupLength=tree.length; groupIndex < groupLength; groupIndex++) {
+				results = results.concat(this._querySelector(tree[groupIndex], context, opts));
+			}
+
+			if (groupLength > 1) {
+				results = _sort(results);
+			}
+
+			results = _filterUnique(results);
+			return results;
+		},
+
+		/**
+		 *
+		 */
+		_querySelector: function(selectorTree, context, opts) {
+
+			var results = [];
+
+			context = context || doc;
+			opts = opts || {};
+
+			if (opts.testContext && context.nodeType == 1) {
+				results.push(context);
+			}
+
+			for (var stIndex = 0, stLength = selectorTree.length; stIndex < stLength; stIndex++) {
+				var selectorData = selectorTree[stIndex];
+				
+				switch(selectorData.type) {
+					case _LL.ID : {
+						results = this.api.byId(selectorData, results, context, opts);
+						break;
+					}
+					case _LL.UNIV :
+					case _LL.TYPE : {
+						results = this.api.byType(selectorData, results, context, opts);
+						break;
+					}
+					case _LL.CLS : {
+						results = this.api.byClass(selectorData, results, context, opts);
+						break;
+					}
+					case _LL.COMB : {
+						switch(selectorData.value) {
+							case ' ' : {
+								results = this.api.byDescendantComb(selectorData, results, context, opts);
+								break;
+							}
+							case '+' : {
+								results = this.api.byImmediatelyPrecedingComb(selectorData, results, context, opts);
+								break;
+							}
+							case '~' : {
+								results = this.api.byPrecedingComb(selectorData, results, context, opts);
+								break;
+							}
+							case '>' : {
+								results = this.api.byChildComb(selectorData, results, context, opts);
+								break;
+							}
+						}
+						break;
+					}
+					case _LL.ATTR : {
+						switch(selectorData.value.op) {
+							case '' : {
+								results = this.api.byAttributeName(selectorData, results, context, opts);
+								break;
+							}
+							case '=' : {
+								results = this.api.byAttributeEquals(selectorData, results, context, opts);
+								break;
+							}
+							case '~=' : {
+								results = this.api.byAttributeInList(selectorData, results, context, opts);
+								break;
+							}
+							case '^=' : {
+								results = this.api.byAttributeBegin(selectorData, results, context, opts);
+								break;
+							}
+							case '$=' : {
+								results = this.api.byAttributeEnds(selectorData, results, context, opts);
+								break;
+							}
+							case '*=' : {
+								results = this.api.byAttributeMiddle(selectorData, results, context, opts);
+								break;
+							}
+							case '|=' : {
+								results = this.api.byAttributeHyphenList(selectorData, results, context, opts);
+								break;
+							}
+						}
+						break;
+					}
+					case _LL.PSCLS : {
+						switch(selectorData.value) {
+							case ':first-child' : {
+								results = this.api.byFirstChild(selectorData, results, context, opts);
+								break;
+							}
+							case ':last-child' : {
+								results = this.api.byLastChild(selectorData, results, context, opts);
+								break;
+							}
+							case ':first' :
+							case ':first-of-type' : {
+								results = this.api.byFirstOfType(selectorData, results, context, opts);
+								break;
+							}
+							case ':last' :
+							case ':last-of-type' : {
+								results = this.api.byLastOfType(selectorData, results, context, opts);
+								break;
+							}
+							case ':only-child' : {
+								results = this.api.byOnlyChild(selectorData, results, context, opts);
+								break;
+							}
+							case ':only-of-type' : {
+								results = this.api.byOnlyOfType(selectorData, results, context, opts);
+								break;
+							}
+							case ':empty' : {
+								results = this.api.byEmpty(selectorData, results, context, opts);
+								break;
+							}
+							case ':enabled' : {
+								results = this.api.byEnabled(selectorData, results, context, opts);
+								break;
+							}
+							case ':disabled' : {
+								results = this.api.byDisabled(selectorData, results, context, opts);
+								break;
+							}
+							case ':checked' : {
+								results = this.api.byChecked(selectorData, results, context, opts);
+								break;
+							}
+							case ':hidden' : {
+								results = this.api.byHidden(selectorData, results, context, opts);
+								break;
+							}
+							case ':visible' : {
+								results = this.api.byVisible(selectorData, results, context, opts);
+								break;
+							}
+							case ':selected' : {
+								results = this.api.bySelected(selectorData, results, context, opts);
+								break;
+							}
+							case ':contains' : {
+								results = this.api.byContains(selectorData, results, context, opts);
+								break;
+							}
+							case ':lang' : {
+								results = this.api.byLang(selectorData, results, context, opts);
+								break;
+							}
+							case ':root' : {
+								results = this.api.byRoot(selectorData, results, context, opts);
+								break;
+							}
+							case ':even' : {
+								results = this.api.byNth({
+									content: 'even',
+									value: ':nth-child'
+								}, results, context, opts);
+								break;
+							}
+							case ':odd' : {
+								results = this.api.byNth({
+									content: 'odd',
+									value: ':nth-child'
+								}, results, context, opts);
+								break;
+							}
+							case ':eq' : {
+								results = this.api.byNth({
+									content: selectorData.content,
+									value: ':nth-child'
+								}, results, context, opts);
+								break;
+							}
+							case ':lt' : {
+								results = this.api.byNth({
+									content: '-n+' + selectorData.content,
+									value: ':nth-child'
+								}, results, context, opts);
+								break;
+							}
+							case ':gt' : {
+								results = this.api.byNth({
+									content: 'n+' + selectorData.content,
+									value: ':nth-child'
+								}, results, context, opts);
+								break;
+							}
+							case ':input' : {
+								results = this.api.byType({value: 'input, select, button, textarea'}, results, context, opts);								
+								break;
+							}
+							case ':radio' : {
+								results = this.api.byAttributeEquals({value:{left:'type',op:'=',right:'radio'}}, results, context, opts);
+								break;
+							}
+							case ':text' : {
+								results = this.api.byAttributeEquals({value:{left:'type',op:'=',right:'text'}}, results, context, opts);
+								break;
+							}
+							case ':checkbox' : {
+								results = this.api.byAttributeEquals({value:{left:'type',op:'=',right:'checkbox'}}, results, context, opts);
+								break;
+							}
+							case ':header' : {
+								results = this.api.byType({value: 'h1, h2, h3, h4, h5, h6'}, results, context, opts);
+								break;
+							}
+						}
+						break;
+					}
+					case _LL.NTH : {
+						results = this.api.byNth(selectorData, results, context, opts);
+						break;
+					}
+					case _LL.NOT : {
+						results = this.api.byNot(selectorData, results, context, opts);
+						break;
+					}
+					case _LL.HAS : {
+						results = this.api.byHas(selectorData, results, context, opts);
+						break;
+					}
+				}
+				// if we didn't find anything no need to further filter
+				if (results.length == 0) {
+					break;
+				}				
+			}
+
+			return results;
+		}
+	}
+
+}(window, document));

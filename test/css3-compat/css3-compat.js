@@ -12,7 +12,7 @@ var CDN = 'http://ajax.googleapis.com/ajax/libs/',
 //  * other selector engines
 engines = {
   'querySelectorAll': [ 'document.querySelectorAll(s)',    '' ],
-  'peppy':        [ 'peppy.query(s)',                '../../peppy2.js' ]//,
+  'peppy':        [ 'peppy.query(s)',                '../../peppy.js' ]//,
 //  'base2':            [ 'base2.dom.querySelectorAll(c,s)', 'lib/base2+dom.js' ],
 //  'dojo':             [ 'dojo.query(s)',                   CDN + 'dojo/1.4.1/dojo/dojo.xd.js' ],
 //  'ext':              [ 'Ext.DomQuery.select(s)',          CDN + 'ext-core/3.1.0/ext-core.js' ],

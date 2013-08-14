@@ -1388,11 +1388,13 @@
 			var isAST = Object.prototype.toString.call(selector) == '[object Array]',
 				results = [];
 
-			if (!isAST && doc.querySelectorAll) {
+			context = context || doc;
+
+			if (!isAST && context.querySelectorAll) {
 				var nl,
 					skipQSA = false;
 
-				try { nl = doc.querySelectorAll(selector); } catch(e) { skipQSA = true; }
+				try { nl = context.querySelectorAll(selector); } catch(e) { skipQSA = true; }
 
 				if (!skipQSA) {
 					results = Array.prototype.slice.call(nl);
